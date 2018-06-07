@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 import hashlib
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.model_selection import StratifiedShuffleSplit
 
 
 ROOT_PATH = "D:\\AI\\handson-ml-master\\"
@@ -55,8 +56,7 @@ if __name__ == '__main__':
     tail = housing.tail(n=5)    # the last five rows of csv
     # print(head)
 
-    info = housing.info()       # description of csv
-    # print(info)
+    info = housing.info()       # description of csv: this line will output info if not commented
 
     ocean_proximity = housing['ocean_proximity'].value_counts()
     # the total numbers of each item in the column "ocean_proximity"
@@ -88,3 +88,21 @@ if __name__ == '__main__':
     # plt.show()
     housing["median_income"].hist(bins=50, figsize=(7, 4))  # bins: the bar count
     # plt.show()
+
+    # Divide by 1.5 to limit the number of income categories
+    housing["income_cat"] = np.ceil(housing["median_income"] / 1.5)  # ceil: round up to int value
+    # Label those above 5 as 5
+    housing["income_cat"].where(housing["income_cat"] < 5, 5.0, inplace=True)
+    # print(housing["income_cat"].value_counts())
+    housing["income_cat"].hist(bins=30, figsize=(20, 12))
+    # plt.show()
+
+    split = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)  # spliter of full data set
+    for train_index, test_index in split.split(housing, housing["income_cat"]):  # housing=X, income_cat=y
+        strat_train_set = housing.loc[train_index]
+        strat_test_set = housing.loc[test_index]
+    # the proportion of splited result of the stratified sampling
+    # print(strat_test_set["income_cat"].value_counts() / len(strat_test_set))
+    # the proportion of random splited result
+    # print(housing["income_cat"].value_counts() / len(housing))
+    # the two proportion results are almost same
