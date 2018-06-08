@@ -10,6 +10,7 @@ import hashlib
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedShuffleSplit
+import matplotlib.image as mpimg
 
 
 ROOT_PATH = "D:\\AI\\handson-ml-master\\"
@@ -106,3 +107,57 @@ if __name__ == '__main__':
     # the proportion of random splited result
     # print(housing["income_cat"].value_counts() / len(housing))
     # the two proportion results are almost same
+
+    # drop income_cat column and reset data sets
+    # print(strat_test_set.head())
+    for set in (strat_train_set, strat_test_set):
+        set.drop(["income_cat"], axis=1, inplace=True)
+    # print(strat_test_set.head())  #  the income_cat is removed from sets
+
+    # Visualize the data to gain insights
+
+    #  backup the train data set
+    housing = strat_train_set.copy()
+
+    # plot the scatter picture upon train set
+    housing.plot(kind="scatter", x="longitude", y="latitude", alpha=0.1)  # alpha:transparency, 0:transparent 1:opaque
+    # plt.show()
+
+    # plot the scatter picture with population circles and median house values upon train set
+    # s:size of point=population, c:color red:high price blue:low price, cmap:color map named jet, sharex:share x?
+    # https://blog.csdn.net/zhangqilong120/article/details/72633115
+    housing.plot(kind="scatter", x="longitude", y="latitude", alpha=0.4,
+                 s=housing["population"] / 100, label="population", figsize=(10, 7),
+                 c="median_house_value", cmap=plt.get_cmap("jet"), colorbar=True,
+                 sharex=False)
+    plt.legend()  # show the label "population" on the picture's right higher corner
+    # plt.show()
+
+    # plot scatter picture with california image
+    california_img = mpimg.imread(ROOT_PATH + '/images/end_to_end_project/california.png')
+    ax = housing.plot(kind="scatter", x="longitude", y="latitude", figsize=(10, 7),
+                      s=housing['population'] / 100, label="Population",
+                      c="median_house_value", cmap=plt.get_cmap("jet"),
+                      colorbar=False, alpha=0.4,
+                      )
+    # extent: the coordinators of left lower point and right higher point
+    plt.imshow(california_img, extent=[-124.55, -113.80, 32.45, 42.05], alpha=0.5,
+               cmap=plt.get_cmap("jet"))
+    plt.ylabel("Latitude", fontsize=14)  # make y axis's explanation
+    plt.xlabel("Longitude", fontsize=14)  # make x axis's explanation
+    prices = housing["median_house_value"]
+    # linspace: Return evenly spaced numbers over a specified interval.
+    tick_values = np.linspace(prices.min(), prices.max(), 7)  # 7: the number of scalar shown on the right
+    cbar = plt.colorbar()
+    # the first list shows $500k, $403k... round(): si she wu ru
+    cbar.ax.set_yticklabels(["$%dk" % (round(v / 1000)) for v in tick_values], fontsize=14)
+    cbar.set_label('Median House Value', fontsize=16)  # title
+    plt.legend(fontsize=16)  # show the legend "population"
+    # plt.show()
+
+    # correlations
+
+    # get the correlations matrix
+    corr_matrix = housing.corr()
+    # show the correlation to median house value in ascending order
+    # print(corr_matrix["median_house_value"].sort_values(ascending=False))
