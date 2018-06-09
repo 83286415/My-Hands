@@ -11,6 +11,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedShuffleSplit
 import matplotlib.image as mpimg
+from pandas.plotting import scatter_matrix
+from sklearn.preprocessing import Imputer
 
 
 ROOT_PATH = "D:\\AI\\handson-ml-master\\"
@@ -85,6 +87,7 @@ if __name__ == '__main__':
     # print(test_set.head())
 
     # the histogram picture of housing data show
+    # x axis: the values of each column. y axis: the total count of items in each interval
     housing.hist(bins=30, figsize=(20, 12))
     # plt.show()
     housing["median_income"].hist(bins=50, figsize=(7, 4))  # bins: the bar count
@@ -157,7 +160,69 @@ if __name__ == '__main__':
 
     # correlations
 
-    # get the correlations matrix
+    # get the correlations matrix shown in text
     corr_matrix = housing.corr()
     # show the correlation to median house value in ascending order
     # print(corr_matrix["median_house_value"].sort_values(ascending=False))
+
+    # get the correlations matrix shown in picture tables
+    #  For older versions of Pandas: make the n*n matrix according to list len
+    attributes = ["median_house_value", "median_income", "total_rooms",
+                  "housing_median_age"]
+    scatter_matrix(housing[attributes], figsize=(12, 8))
+    # plt.show()
+
+    # analysis the correlation between median income and median house value, shown in picture table
+    housing.plot(kind="scatter", x="median_income", y="median_house_value",
+                 alpha=0.1)
+    plt.axis([0, 16, 0, 550000])  # list's [0][1] make the x axis, [2][3] make the y axis
+    # plt.show()
+
+    # attributes combination test
+    # add new columns into housing full data set and find out the correlation
+    housing["rooms_per_household"] = housing["total_rooms"] / housing["households"]
+    housing["bedrooms_per_room"] = housing["total_bedrooms"] / housing["total_rooms"]
+    housing["population_per_household"] = housing["population"] / housing["households"]
+    corr_matrix = housing.corr()
+    # print(corr_matrix["median_house_value"].sort_values(ascending=False))
+
+    # Prepare the data for Machine Learning algorithms
+
+    # data clean
+    housing = strat_train_set.drop("median_house_value", axis=1)  # drop label for training set
+    housing_labels = strat_train_set["median_house_value"].copy()  # make label with median house value
+    # print(housing_labels.sort_values(ascending=True))
+
+    # show the missing items and their rows
+    sample_incomplete_rows = housing[housing.isnull().any(axis=1)].head()
+    # print(sample_incomplete_rows)
+
+    # drop
+
+    # option 1: drop the rows or columns with missing items. do NOT affect sample incomplete rows
+    sample_rows = sample_incomplete_rows.dropna(subset=["total_bedrooms"], how='any')
+    # print(sample_rows)  # nothing will be printed.
+
+    # option 2: drop the rows or columns specified. do NOT affect sample incomplete rows
+    sample_rows = sample_incomplete_rows.drop("total_bedrooms", axis=1)
+    # print(sample_rows)
+
+    # option 3: fill the missing items with values. affect sample incomplete rows
+    median = housing["total_bedrooms"].median()
+    sample_incomplete_rows["total_bedrooms"].fillna(median, inplace=True)
+    # print(sample_incomplete_rows)
+
+    # option 4:
+    imputer = Imputer(strategy="median")  # set imputer to "median" computing mode
+    housing_num = housing.drop('ocean_proximity', axis=1)  # drop the non-number column
+    # alternatively: housing_num = housing.select_dtypes(include=[np.number])
+    FIT = imputer.fit(housing_num)  # put housing_num into imputer to compute median values of each column
+    # print(FIT)  # output: Imputer(axis=0, copy=True, missing_values='NaN', strategy='median', verbose=0)
+    # print(imputer.statistics_)  # show the median values of each column
+    # print(housing.median().values)  # the same result as the one above
+    X = imputer.transform(housing_num)  # generate plain number list X
+    # print(X)  # plain number list. Not pandas data frame.
+    housing_tr = pd.DataFrame(X, columns=housing_num.columns,
+                              index=list(housing.index.values))  # turn housing num back to pandas data frame
+    # print(housing_tr.loc[sample_incomplete_rows.index.values])  # output incomplete rows
+    # print(housing_tr.head())  # output all data set
