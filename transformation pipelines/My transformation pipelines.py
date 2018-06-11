@@ -15,6 +15,7 @@ from pandas.plotting import scatter_matrix
 from sklearn.preprocessing import Imputer
 from sklearn.preprocessing.future_encoders import OrdinalEncoder, OneHotEncoder
 from sklearn.pipeline import FeatureUnion
+from sklearn.linear_model import LinearRegression
 
 
 ROOT_PATH = "D:\\AI\\handson-ml-master\\"
@@ -32,18 +33,18 @@ class CombinedAttributesAdder(BaseEstimator, TransformerMixin):
     def __init__(self, add_bedrooms_per_room=True):   # no *args or **kargs
         self.add_bedrooms_per_room = add_bedrooms_per_room  # add a gate to open or not in next data preparation step
 
-    def fit(self, X, y=None):
+    def fit(self, data_set, data_set_label=None):
         return self  # nothing else to do
 
-    def transform(self, X, y=None):
-        rooms_per_household = X[:, rooms_ix] / X[:, household_ix]  # rooms'count in one family
-        population_per_household = X[:, population_ix] / X[:, household_ix]  # the people count in one family
+    def transform(self, data_set, data_set_label=None):
+        rooms_per_household = data_set[:, rooms_ix] / data_set[:, household_ix]  # rooms'count in one family
+        population_per_household = data_set[:, population_ix] / data_set[:, household_ix]  # the people count in one family
         if self.add_bedrooms_per_room:
-            bedrooms_per_room = X[:, bedrooms_ix] / X[:, rooms_ix]
-            return np.c_[X, rooms_per_household, population_per_household,
+            bedrooms_per_room = data_set[:, bedrooms_ix] / data_set[:, rooms_ix]
+            return np.c_[data_set, rooms_per_household, population_per_household,
                          bedrooms_per_room]  # c_: join left arrays with right arrays
         else:
-            return np.c_[X, rooms_per_household, population_per_household]
+            return np.c_[data_set, rooms_per_household, population_per_household]
 
 
 # Create a class to select numerical or categorical columns
@@ -52,11 +53,11 @@ class DataFrameSelector(BaseEstimator, TransformerMixin):
     def __init__(self, attribute_names):
         self.attribute_names = attribute_names
 
-    def fit(self, X, y=None):
+    def fit(self, data_set, data_set_label=None):
         return self
 
-    def transform(self, X):
-        return X[self.attribute_names].values
+    def transform(self, data_set):
+        return data_set[self.attribute_names].values
 
 
 def fetch_housing_data(housing_path=HOUSING_PATH, housing_tgz_path=HOUSING_TGZ_PATH):
@@ -257,15 +258,16 @@ if __name__ == '__main__':
     imputer = Imputer(strategy="median")  # set imputer to "median" computing mode
     housing_num = housing.drop('ocean_proximity', axis=1)  # drop the non-number column
     # alternatively: housing_num = housing.select_dtypes(include=[np.number])
-    FIT = imputer.fit(housing_num)  # put housing_num into imputer to compute median values of each column
-    # print(FIT)  # output: Imputer(axis=0, copy=True, missing_values='NaN', strategy='median', verbose=0)
+    # Only train set data could be put into fit()
+    IMPUTER_FIT = imputer.fit(housing_num)  # put housing_num into imputer to compute median values of each column
+    # print(IMPUTER_FIT)  # output: Imputer(axis=0, copy=True, missing_values='NaN', strategy='median', verbose=0)
     # print(imputer.statistics_)  # show the median values of each column
     # print(housing.median().values)  # the same result as the one above
-    X = imputer.transform(housing_num)  # generate plain number list X
-    # print(X)  # plain number list. Not pandas data frame.
-    housing_tr = pd.DataFrame(X, columns=housing_num.columns,
+    IMPUTER_TRANSFORM = imputer.transform(housing_num)  # generate plain number list IMPUTER_TRANSFORM
+    # print(IMPUTER_TRANSFORM)  # plain number list. Not pandas data frame.
+    housing_tr = pd.DataFrame(IMPUTER_TRANSFORM, columns=housing_num.columns,
                               index=list(housing.index.values))  # turn housing num back to pandas data frame
-    # print(housing_tr.loc[sample_incomplete_rows.index.values])  # output incomplete rows
+    # print(housing_tr.loc[sample_incomplete_rows.index.values])  # loc[index]: output incomplete rows due to [index]
     # print(housing_tr.head())  # output all data set (head: first 5 rows)
 
     # handling text
@@ -288,16 +290,32 @@ if __name__ == '__main__':
     # print(housing_cat_1hot)
     # print(housing_cat_1hot.toarray())
 
+    # standardscaler
+
+    standardscaler = StandardScaler(copy=True, with_mean=True, with_std=True)  # define a scalar
+    STANDARDSCALER_FIT = standardscaler.fit(housing_tr)  # compute mean and std of housing_tr (train set)
+    # print(STANDARDSCALER_FIT)  # return: StandardScaler(copy=True, with_mean=True, with_std=True)
+    # print(STANDARDSCALER_FIT.mean_)  # return the mean of each column
+    # print(STANDARDSCALER_FIT.var_)  # return the fangcha of each column
+    # print(STANDARDSCALER_FIT.scale_)  # return the relative scaling of each column
+    STANDARDSCALER_TRANSFORM = standardscaler.transform(housing_tr)
+    # print(STANDARDSCALER_TRANSFORM)  # generate plain array which will be used to train the test sets
+    housing_tr = pd.DataFrame(STANDARDSCALER_TRANSFORM, columns=housing_num.columns,
+                              index=list(housing.index.values))  # turn housing num back to pandas data frame
+    # print(housing_tr.head())  # output all data set (head: first 5 rows)
+
     # Transformer
 
-    attr_adder = CombinedAttributesAdder(add_bedrooms_per_room=False)
+    attr_adder = CombinedAttributesAdder(add_bedrooms_per_room=True)
     housing_extra_attribs = attr_adder.transform(housing.values)  # numpy return a plain array
     housing_extra_attribs = pd.DataFrame(
         housing_extra_attribs,
-        columns=list(housing.columns) + ["rooms_per_household", "population_per_household"])  # make it Data frame
+        columns=list(housing.columns) + ["rooms_per_household", "population_per_household", "bedrooms_per_room"])
+    # make it Data frame
     # print(housing_extra_attribs.head())  # new added columns are shown following the original data frame
 
     # Pipeline
+    # All steps except the last one should be transformer. The last step could be fit, transformer etc.
 
     num_attribs = list(housing_num)
     cat_attribs = ["ocean_proximity"]
@@ -307,7 +325,7 @@ if __name__ == '__main__':
         ('selector', DataFrameSelector(num_attribs)),  # return number type values
         ('imputer', Imputer(strategy="median")),  # compute the median values and put it into NA box
         ('attribs_adder', CombinedAttributesAdder()),  # add new columns
-        ('std_scaler', StandardScaler()),  # TODO
+        ('std_scaler', StandardScaler(with_mean=False)),  # define a scaler to compute mean and std for train set
     ])
     # housing_num_tr = num_pipeline.fit_transform(housing_num)  # transform the number type housing set
 
@@ -324,4 +342,31 @@ if __name__ == '__main__':
     housing_prepared = full_pipeline.fit_transform(housing)  # fit and transform in the full pipeline
     # print(housing_prepared)  # np return a plain array
     # print(housing_prepared.shape)  # shape returns a tuple: (rows count, columns count)
-    # shape returns (16512, 16): 16512 rows, 16: 10 housing number type columns + 5 categories of non-number + 1 index
+    # shape returns (16512, 16): 16512 rows, 16 columns
+    # 16 columns as below: 11 housing number type columns + 5 categories of non-number
+    housing_prepared_df = pd.DataFrame(
+                            housing_prepared,
+                            columns=list(housing_num.columns) + ['rooms_per_household', 'population_per_household',
+                                                                 'bedrooms_per_room', '<1H OCEAN', 'INLAND', 'ISLAND',
+                                                                 'NEAR BAY', 'NEAR OCEAN'])
+    # print(housing_prepared_df.head())  # convert np plain array into pd dataframe
+
+    # Train model
+    # Linear Regression
+
+    lin_reg = LinearRegression()
+    LIN_REG_FIT = lin_reg.fit(housing_prepared, housing_labels)  # fit(X, y)
+    # compute the coef(a) and intercept(b) of the data prepared previously. a, b refer to explanation below
+
+    # print(LIN_REG_FIT)  # return: LinearRegression(copy_X=True, fit_intercept=True, n_jobs=1, normalize=False)
+    # print(LIN_REG_FIT.coef_)  # coefficients: y=aX+b, a means coefficient
+    # print(LIN_REG_FIT.intercept_)  # intercept: y=aX+b, b means intercept
+
+    # pick up some data for testing the linear regression predictor
+    some_data = housing.iloc[:5]  # the first 5 rows (if loc[:5]: the first row to the row whose index is 5)
+    some_labels = housing_labels.iloc[:5]  # the first 5 rows' median house value (refer to housing label's definition)
+
+    some_data_prepared = full_pipeline.transform(some_data)  # prepare the data for testing via pipeline defined before
+    print("Predictions:", lin_reg.predict(some_data_prepared))  # some_data_prepared=X, y is defined in fit() above
+    # the output of lig_reg.predict(X): new y
+    print("Labels:", list(some_labels))  # some_labels: y
