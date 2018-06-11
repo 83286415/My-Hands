@@ -1,6 +1,6 @@
 import os
 import tarfile
-from six.moves import urllib
+# from six.moves import urllib
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -13,12 +13,50 @@ from sklearn.model_selection import StratifiedShuffleSplit
 import matplotlib.image as mpimg
 from pandas.plotting import scatter_matrix
 from sklearn.preprocessing import Imputer
+from sklearn.preprocessing.future_encoders import OrdinalEncoder, OneHotEncoder
+from sklearn.pipeline import FeatureUnion
 
 
 ROOT_PATH = "D:\\AI\\handson-ml-master\\"
 # HOUSING_PATH = os.path.join("datasets", "housing")
 HOUSING_TGZ_PATH = ROOT_PATH + "datasets\\housing\\housing.tgz"
 HOUSING_PATH = ROOT_PATH + "datasets\\housing\\"
+
+
+# column index
+rooms_ix, bedrooms_ix, population_ix, household_ix = 3, 4, 5, 6
+
+
+class CombinedAttributesAdder(BaseEstimator, TransformerMixin):
+    # TransformerMixin: get fit_transform()   BaseEstimator: if no *args or **kargs, get_params() set_params() available
+    def __init__(self, add_bedrooms_per_room=True):   # no *args or **kargs
+        self.add_bedrooms_per_room = add_bedrooms_per_room  # add a gate to open or not in next data preparation step
+
+    def fit(self, X, y=None):
+        return self  # nothing else to do
+
+    def transform(self, X, y=None):
+        rooms_per_household = X[:, rooms_ix] / X[:, household_ix]  # rooms'count in one family
+        population_per_household = X[:, population_ix] / X[:, household_ix]  # the people count in one family
+        if self.add_bedrooms_per_room:
+            bedrooms_per_room = X[:, bedrooms_ix] / X[:, rooms_ix]
+            return np.c_[X, rooms_per_household, population_per_household,
+                         bedrooms_per_room]  # c_: join left arrays with right arrays
+        else:
+            return np.c_[X, rooms_per_household, population_per_household]
+
+
+# Create a class to select numerical or categorical columns
+# since Scikit-Learn doesn't handle DataFrames yet
+class DataFrameSelector(BaseEstimator, TransformerMixin):
+    def __init__(self, attribute_names):
+        self.attribute_names = attribute_names
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return X[self.attribute_names].values
 
 
 def fetch_housing_data(housing_path=HOUSING_PATH, housing_tgz_path=HOUSING_TGZ_PATH):
@@ -42,8 +80,8 @@ def load_housing_data(housing_path=HOUSING_PATH):
     return pd.read_csv(csv_path)
 
 
-def test_set_check(identifier, test_ratio, hash=hashlib.md5):
-    return hash(np.int64(identifier)).digest()[-1] < 256 * test_ratio
+def test_set_check(identifier, test_ratio, _hash=hashlib.md5):
+    return _hash(np.int64(identifier)).digest()[-1] < 256 * test_ratio
 
 
 def split_train_test_by_id(data, test_ratio, id_column):
@@ -58,6 +96,7 @@ if __name__ == '__main__':
     head = housing.head(n=5)    # the first five rows of csv
     tail = housing.tail(n=5)    # the last five rows of csv
     # print(head)
+    # print(housing.loc[1, "population"])  # loc usage refer to notebook
 
     info = housing.info()       # description of csv: this line will output info if not commented
 
@@ -101,6 +140,8 @@ if __name__ == '__main__':
     housing["income_cat"].hist(bins=30, figsize=(20, 12))
     # plt.show()
 
+    strat_train_set = housing
+    strat_test_set = housing
     split = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)  # spliter of full data set
     for train_index, test_index in split.split(housing, housing["income_cat"]):  # housing=X, income_cat=y
         strat_train_set = housing.loc[train_index]
@@ -113,8 +154,8 @@ if __name__ == '__main__':
 
     # drop income_cat column and reset data sets
     # print(strat_test_set.head())
-    for set in (strat_train_set, strat_test_set):
-        set.drop(["income_cat"], axis=1, inplace=True)
+    for _set in (strat_train_set, strat_test_set):
+        _set.drop(["income_cat"], axis=1, inplace=True)
     # print(strat_test_set.head())  #  the income_cat is removed from sets
 
     # Visualize the data to gain insights
@@ -225,4 +266,62 @@ if __name__ == '__main__':
     housing_tr = pd.DataFrame(X, columns=housing_num.columns,
                               index=list(housing.index.values))  # turn housing num back to pandas data frame
     # print(housing_tr.loc[sample_incomplete_rows.index.values])  # output incomplete rows
-    # print(housing_tr.head())  # output all data set
+    # print(housing_tr.head())  # output all data set (head: first 5 rows)
+
+    # handling text
+
+    housing_cat = housing[['ocean_proximity']]  # return dataframe's ocean proximity column
+    # housing_cat_1d = housing['ocean_proximity']  # dict property: return series data type
+    # print(housing_cat.head(10))
+    # print(housing_cat_1d.head(10))
+
+    ordinal_encoder = OrdinalEncoder()  # make an encoder. ordinal: encode one by one in orders.
+    housing_cat_encoded = ordinal_encoder.fit_transform(housing_cat)
+    # print(housing_cat_encoded[:10])  # show the first ten encoded non-number values
+    # print(ordinal_encoder.categories_)  # show the categories unchanged
+
+    cat_encoder = OneHotEncoder(sparse=True)  # return a sparse or dense array.
+    #  make the 0/1 one hot encoder. 1:value==category; 0:value!=category.
+    # sparse array: show a tuple and a bool: (index, category number value), 1 or 0
+    # dense array: show 2d matrix. each row get a list of categories. only 1 element ==1, else ==0
+    housing_cat_1hot = cat_encoder.fit_transform(housing_cat)
+    # print(housing_cat_1hot)
+    # print(housing_cat_1hot.toarray())
+
+    # Transformer
+
+    attr_adder = CombinedAttributesAdder(add_bedrooms_per_room=False)
+    housing_extra_attribs = attr_adder.transform(housing.values)  # numpy return a plain array
+    housing_extra_attribs = pd.DataFrame(
+        housing_extra_attribs,
+        columns=list(housing.columns) + ["rooms_per_household", "population_per_household"])  # make it Data frame
+    # print(housing_extra_attribs.head())  # new added columns are shown following the original data frame
+
+    # Pipeline
+
+    num_attribs = list(housing_num)
+    cat_attribs = ["ocean_proximity"]
+
+    # put the selector, imputer, transformer and scalar into one pipeline
+    num_pipeline = Pipeline([
+        ('selector', DataFrameSelector(num_attribs)),  # return number type values
+        ('imputer', Imputer(strategy="median")),  # compute the median values and put it into NA box
+        ('attribs_adder', CombinedAttributesAdder()),  # add new columns
+        ('std_scaler', StandardScaler()),  # TODO
+    ])
+    # housing_num_tr = num_pipeline.fit_transform(housing_num)  # transform the number type housing set
+
+    cat_pipeline = Pipeline([
+        ('selector', DataFrameSelector(cat_attribs)),
+        ('cat_encoder', OneHotEncoder(sparse=False)),  # make this non-number type value into 1/0 bool
+    ])
+
+    full_pipeline = FeatureUnion(transformer_list=[
+        ("num_pipeline", num_pipeline),
+        ("cat_pipeline", cat_pipeline),
+    ])  # unite two pipelines into one
+
+    housing_prepared = full_pipeline.fit_transform(housing)  # fit and transform in the full pipeline
+    # print(housing_prepared)  # np return a plain array
+    # print(housing_prepared.shape)  # shape returns a tuple: (rows count, columns count)
+    # shape returns (16512, 16): 16512 rows, 16: 10 housing number type columns + 5 categories of non-number + 1 index
