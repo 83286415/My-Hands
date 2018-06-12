@@ -16,6 +16,10 @@ from sklearn.preprocessing import Imputer
 from sklearn.preprocessing.future_encoders import OrdinalEncoder, OneHotEncoder
 from sklearn.pipeline import FeatureUnion
 from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import cross_val_score
 
 
 ROOT_PATH = "D:\\AI\\handson-ml-master\\"
@@ -83,6 +87,12 @@ def load_housing_data(housing_path=HOUSING_PATH):
 
 def test_set_check(identifier, test_ratio, _hash=hashlib.md5):
     return _hash(np.int64(identifier)).digest()[-1] < 256 * test_ratio
+
+
+def display_scores(scores):
+    print("Scores:", scores)
+    print("Mean:", scores.mean())
+    print("Standard deviation:", scores.std())
 
 
 def split_train_test_by_id(data, test_ratio, id_column):
@@ -340,6 +350,8 @@ if __name__ == '__main__':
     ])  # unite two pipelines into one
 
     housing_prepared = full_pipeline.fit_transform(housing)  # fit and transform in the full pipeline
+    # the "housing" is the train data which drops the "train label" median_house_value
+
     # print(housing_prepared)  # np return a plain array
     # print(housing_prepared.shape)  # shape returns a tuple: (rows count, columns count)
     # shape returns (16512, 16): 16512 rows, 16 columns
@@ -367,6 +379,74 @@ if __name__ == '__main__':
     some_labels = housing_labels.iloc[:5]  # the first 5 rows' median house value (refer to housing label's definition)
 
     some_data_prepared = full_pipeline.transform(some_data)  # prepare the data for testing via pipeline defined before
-    print("Predictions:", lin_reg.predict(some_data_prepared))  # some_data_prepared=X, y is defined in fit() above
-    # the output of lig_reg.predict(X): new y
-    print("Labels:", list(some_labels))  # some_labels: y
+    # print("Predictions:", lin_reg.predict(some_data_prepared))  # some_data_prepared=X, y is defined in fit() above
+    some_data_predictions = lin_reg.predict(some_data_prepared)
+    # some_data_predictions: the output of lig_reg.predict(X): new y
+    # print("Labels:", list(some_labels))  # some_labels: y
+
+    # predict and check the RMSE & MAE results
+    housing_predictions = lin_reg.predict(housing_prepared)
+    lin_mse = mean_squared_error(housing_labels, housing_predictions)  # mean_squared_error(y, new_y)
+    lin_rmse = np.sqrt(lin_mse)  # root-mean-square error
+    # print(lin_rmse)  # the RMSE 68628 is too big. So the model under fits the train data set.
+    # The best result of RMSE is 0.
+    lin_mae = mean_absolute_error(housing_labels, housing_predictions)  # mean_absolute_error(y, new_y)
+    # print(lin_mae)  # the MAE is 49439, not satisfying either.
+
+    # Decision Tree Regression
+
+    tree_reg = DecisionTreeRegressor(random_state=42)  # decision tree regressor is in chapter 6
+    TREE_REG_FIT = tree_reg.fit(housing_prepared, housing_labels)  # fit(X, y)
+    # print(TREE_REG_FIT)
+    # FIT output: DecisionTreeRegressor(criterion='mse', max_depth=None, max_features=None,
+    #                                   max_leaf_nodes=None, min_impurity_decrease=0.0,
+    #                                   min_impurity_split=None, min_samples_leaf=1,
+    #                                   min_samples_split=2, min_weight_fraction_leaf=0.0,
+    #                                   presort=False, random_state=42, splitter='best')
+    housing_predictions = tree_reg.predict(housing_prepared)  # housing_predictions: new y
+    tree_mse = mean_squared_error(housing_labels, housing_predictions)
+    tree_rmse = np.sqrt(tree_mse)
+    # print(tree_rmse)  # result is 0, perfect?
+    tree_mae = mean_absolute_error(housing_labels, housing_predictions)  # mean_absolute_error(y, new_y)
+    # print(tree_mae)  # result is 0, perfect?
+
+    # Random Forest Regression
+
+    forest_reg = RandomForestRegressor(random_state=42)
+    FOREST_REG_FIT = forest_reg.fit(housing_prepared, housing_labels)
+    print(FOREST_REG_FIT)  # the output of this fit:
+    # RandomForestRegressor(bootstrap=True, criterion='mse', max_depth=None,
+    #                       max_features='auto', max_leaf_nodes=None,
+    #                       min_impurity_decrease=0.0, min_impurity_split=None,
+    #                       min_samples_leaf=1, min_samples_split=2,
+    #                       min_weight_fraction_leaf=0.0, n_estimators=10, n_jobs=1,
+    #                       oob_score=False, random_state=42, verbose=0, warm_start=False)
+    housing_predictions = forest_reg.predict(housing_prepared)  # predict new y
+    forest_mse = mean_squared_error(housing_labels, housing_predictions)
+    forest_rmse = np.sqrt(forest_mse)
+    # print(forest_rmse)  # the RMSE result is 21993
+
+    # Cross-Validation
+
+    # cross validate tree decision regression
+    scores = cross_val_score(tree_reg, housing_prepared, housing_labels,
+                             scoring="neg_mean_squared_error", cv=10)  # cv: the count of folds and validation times
+    tree_rmse_scores = np.sqrt(-scores)  # Hands on P70: score is negative, opposite of the MSE
+    display_scores(tree_rmse_scores)  # show score, mean and std
+    # mean: 71773, std: 2531
+
+    # cross validate linear regression
+    lin_scores = cross_val_score(lin_reg, housing_prepared, housing_labels,
+                                 scoring="neg_mean_squared_error", cv=10)
+    lin_rmse_scores = np.sqrt(-lin_scores)
+    display_scores(lin_rmse_scores)  # the tree_decision_reg (over fitting) is worse than the lin_reg
+    # mean: 69053, std: 2732
+
+    # cross validate random forest regression
+    forest_scores = cross_val_score(forest_reg, housing_prepared, housing_labels,
+                                    scoring="neg_mean_squared_error", cv=10)
+    forest_rmse_scores = np.sqrt(-forest_scores)
+    display_scores(forest_rmse_scores)  # the result shows the random forest regression is the best predictor
+    # mean: 52612, std: 2302
+
+    # TODO SAVE DUMPS
