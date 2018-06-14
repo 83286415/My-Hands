@@ -1,5 +1,6 @@
 import os
 import tarfile
+import time
 # from six.moves import urllib
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -20,12 +21,14 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import cross_val_score
+from sklearn.externals import joblib
 
 
 ROOT_PATH = "D:\\AI\\handson-ml-master\\"
 # HOUSING_PATH = os.path.join("datasets", "housing")
 HOUSING_TGZ_PATH = ROOT_PATH + "datasets\\housing\\housing.tgz"
 HOUSING_PATH = ROOT_PATH + "datasets\\housing\\"
+HOUSING_SAVED_PATH = ROOT_PATH + "my hands\\Model saved\\"
 
 
 # column index
@@ -99,6 +102,31 @@ def split_train_test_by_id(data, test_ratio, id_column):
     ids = data[id_column]
     in_test_set = ids.apply(lambda id_: test_set_check(id_, test_ratio))
     return data.loc[~in_test_set], data.loc[in_test_set]
+
+
+def save_model(model, model_name, time_stamp_gate=False):
+    if time_stamp_gate:
+        # time gate to decide the time stamp added into file name or not
+        time_stamp = time.strftime('_%Y-%m-%d_%H-%M-%S', time.localtime(time.time()))
+        model_saved_path = HOUSING_SAVED_PATH + model_name + time_stamp + ".pkl"
+    else:
+        model_saved_path = HOUSING_SAVED_PATH + model_name + ".pkl"
+    if not os.path.exists(model_saved_path):
+        joblib.dump(model, model_saved_path)
+    else:
+        print("Cannot save your model %s. Change its name and try it again." % model_name)
+        exit()
+
+
+def load_model(model_name, load_mode=None):
+    # load_mode: refer to joblib.load
+    model_saved_path = HOUSING_SAVED_PATH + model_name + ".pkl"
+    try:
+        model_loaded = joblib.load(model_saved_path, load_mode)
+        return model_loaded
+    except FileNotFoundError:
+        print("Cannot load the file %s. Check it again." % model_name)
+        exit()
 
 
 if __name__ == '__main__':
@@ -414,7 +442,7 @@ if __name__ == '__main__':
 
     forest_reg = RandomForestRegressor(random_state=42)
     FOREST_REG_FIT = forest_reg.fit(housing_prepared, housing_labels)
-    print(FOREST_REG_FIT)  # the output of this fit:
+    # print(FOREST_REG_FIT)  # the output of this fit:
     # RandomForestRegressor(bootstrap=True, criterion='mse', max_depth=None,
     #                       max_features='auto', max_leaf_nodes=None,
     #                       min_impurity_decrease=0.0, min_impurity_split=None,
@@ -432,21 +460,25 @@ if __name__ == '__main__':
     scores = cross_val_score(tree_reg, housing_prepared, housing_labels,
                              scoring="neg_mean_squared_error", cv=10)  # cv: the count of folds and validation times
     tree_rmse_scores = np.sqrt(-scores)  # Hands on P70: score is negative, opposite of the MSE
-    display_scores(tree_rmse_scores)  # show score, mean and std
+    # display_scores(tree_rmse_scores)  # show score, mean and std
     # mean: 71773, std: 2531
 
     # cross validate linear regression
     lin_scores = cross_val_score(lin_reg, housing_prepared, housing_labels,
                                  scoring="neg_mean_squared_error", cv=10)
     lin_rmse_scores = np.sqrt(-lin_scores)
-    display_scores(lin_rmse_scores)  # the tree_decision_reg (over fitting) is worse than the lin_reg
+    # display_scores(lin_rmse_scores)  # the tree_decision_reg (over fitting) is worse than the lin_reg
     # mean: 69053, std: 2732
 
     # cross validate random forest regression
     forest_scores = cross_val_score(forest_reg, housing_prepared, housing_labels,
                                     scoring="neg_mean_squared_error", cv=10)
     forest_rmse_scores = np.sqrt(-forest_scores)
-    display_scores(forest_rmse_scores)  # the result shows the random forest regression is the best predictor
+    # display_scores(forest_rmse_scores)  # the result shows the random forest regression is the best predictor
     # mean: 52612, std: 2302
 
-    # TODO SAVE DUMPS
+    # save and load model (P71): example shown as below
+
+    # save_model(forest_rmse_scores, "forest_rmse_scores")
+    # scores_loaded = load_model("forest_rmse_scores")
+    # display_scores(scores_loaded)
