@@ -1,27 +1,31 @@
 import os
 import tarfile
 import time
-# from six.moves import urllib
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.base import BaseEstimator, TransformerMixin
 import pandas as pd
-from sklearn.model_selection import train_test_split
 import hashlib
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import StratifiedShuffleSplit
 import matplotlib.image as mpimg
+# from six.moves import urllib
 from pandas.plotting import scatter_matrix
+from scipy.stats import randint
+from sklearn.pipeline import Pipeline
+from sklearn.pipeline import FeatureUnion
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import Imputer
 from sklearn.preprocessing.future_encoders import OrdinalEncoder, OneHotEncoder
-from sklearn.pipeline import FeatureUnion
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import cross_val_score
 from sklearn.externals import joblib
+from sklearn.svm import SVR
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
 
 
 ROOT_PATH = "D:\\AI\\handson-ml-master\\"
@@ -92,10 +96,10 @@ def test_set_check(identifier, test_ratio, _hash=hashlib.md5):
     return _hash(np.int64(identifier)).digest()[-1] < 256 * test_ratio
 
 
-def display_scores(scores):
-    print("Scores:", scores)
-    print("Mean:", scores.mean())
-    print("Standard deviation:", scores.std())
+def display_scores(_scores):
+    print("Scores:", _scores)
+    print("Mean:", _scores.mean())
+    print("Standard deviation:", _scores.std())
 
 
 def split_train_test_by_id(data, test_ratio, id_column):
@@ -454,6 +458,16 @@ if __name__ == '__main__':
     forest_rmse = np.sqrt(forest_mse)
     # print(forest_rmse)  # the RMSE result is 21993
 
+    # support vector regression - SVR (refer to chapter 5 SVM)
+
+    svm_reg = SVR(kernel="linear")  # define the kernel trick
+    svm_reg.fit(housing_prepared, housing_labels)  # train
+    housing_predictions = svm_reg.predict(housing_prepared)  # compute new y
+    svm_mse = mean_squared_error(housing_labels, housing_predictions)
+    svm_rmse = np.sqrt(svm_mse)
+    # display_scores(svm_rmse)
+    # score:111094 mean: 111094 std: 0.0
+
     # Cross-Validation
 
     # cross validate tree decision regression
@@ -477,8 +491,136 @@ if __name__ == '__main__':
     # display_scores(forest_rmse_scores)  # the result shows the random forest regression is the best predictor
     # mean: 52612, std: 2302
 
+    # cross validate SVR
+    svm_scores = cross_val_score(svm_reg, housing_prepared, housing_labels,
+                                 scoring="neg_mean_squared_error", cv=10)
+    svm_rmse_scores = np.sqrt(-svm_scores)
+    # display_scores(svm_rmse_scores)
+    # mean: 111809 std: 2762
+
     # save and load model (P71): example shown as below
 
     # save_model(forest_rmse_scores, "forest_rmse_scores")
     # scores_loaded = load_model("forest_rmse_scores")
     # display_scores(scores_loaded)
+
+    # fine tune
+
+    # grid search (chapter 7) - used in small search space
+
+    param_grid = [
+        # try 12 (3×4) combinations of hyperparameters
+        {'n_estimators': [10, 30, 60], 'max_features': [4, 6, 8, 10]},
+        # then try 6 (2×3) combinations with bootstrap set as False
+        {'bootstrap': [False], 'n_estimators': [10, 90], 'max_features': [3, 4, 5]},
+    ]  # define the hyper parameter: detailed info refer to chapter 7
+    # i changed the estimator and max features parameters above.
+    # Now the best params: {'bootstrap': False, 'max_features': 4, 'n_estimators': 90}
+
+    forest_reg = RandomForestRegressor(random_state=42)
+    # train across 5 folds, that's a total of (12+6)*5=90 rounds of training
+    grid_search = GridSearchCV(forest_reg, param_grid, cv=5,
+                               scoring='neg_mean_squared_error', return_train_score=True, refit=True)
+    # refit: when found the best estimator, re-train the whole train data set at once
+    grid_search.fit(housing_prepared, housing_labels)
+    # print(grid_search.best_estimator_)  # the best forest_reg searched
+    # print(grid_search.best_score_)
+    # print(grid_search.best_params_)  # will show the best combination of max feature and n_esitmators
+    # print(grid_search.best_estimator_)
+    # output: RandomForestRegressor(bootstrap=False, criterion='mse', max_depth=None,
+    #        max_features=4, max_leaf_nodes=None, min_impurity_decrease=0.0,
+    #        min_impurity_split=None, min_samples_leaf=1,
+    #        min_samples_split=2, min_weight_fraction_leaf=0.0,
+    #        n_estimators=90, n_jobs=1, oob_score=False, random_state=42,
+    #        verbose=0, warm_start=False)
+    cvres = grid_search.cv_results_
+    for mean_score, params in zip(cvres["mean_test_score"], cvres["params"]):  # zip: more output in one loop
+        # the attributes in cv_results_ refer to the comments of the function GridSearchCV
+        # print(np.sqrt(-mean_score), params)
+        pass
+    # output:
+    #     52756.81345142999{'max_features': 4, 'n_estimators': 10}
+    #     50393.610091085786{'max_features': 4, 'n_estimators': 30}
+    #     49818.13921915004{'max_features': 4, 'n_estimators': 60}
+    #     52010.94743275823{'max_features': 6, 'n_estimators': 10}
+    #     50138.721309007444{'max_features': 6, 'n_estimators': 30}
+    #     49540.62257720069{'max_features': 6, 'n_estimators': 60}
+    #     51735.028037950986{'max_features': 8, 'n_estimators': 10}
+    #     49707.90394629965{'max_features': 8, 'n_estimators': 30}
+    #     49210.35061639113{'max_features': 8, 'n_estimators': 60}
+    #     52270.43569062347{'max_features': 10, 'n_estimators': 10}
+    #     50250.89980971333{'max_features': 10, 'n_estimators': 30}
+    #     49649.03197562726{'max_features': 10, 'n_estimators': 60}
+    #     52726.36568489697{'bootstrap': False, 'max_features': 3, 'n_estimators': 10}
+    #     49658.133497518174{'bootstrap': False, 'max_features': 3, 'n_estimators': 90}
+    #     50986.86163811137{'bootstrap': False, 'max_features': 4, 'n_estimators': 10}
+    #     48703.08873596659{'bootstrap': False, 'max_features': 4, 'n_estimators': 90}
+    #     52086.12659387112{'bootstrap': False, 'max_features': 5, 'n_estimators': 10}
+    #     48772.63432878675{'bootstrap': False, 'max_features': 5, 'n_estimators': 90}
+
+    cv_results_pd = pd.DataFrame(grid_search.cv_results_)  # cv_results_ can be packed into pd data frame easily
+    # print(cv_results_pd.head())
+
+    # random search - used in large search space
+
+    param_distribs = {
+        'n_estimators': randint(low=1, high=200),  # make a random number between the range defined
+        'max_features': randint(low=1, high=8),
+    }  # define the hyper parameter
+
+    forest_reg = RandomForestRegressor(random_state=42)  # define a regression
+    rnd_search = RandomizedSearchCV(forest_reg, param_distributions=param_distribs,
+                                    n_iter=10, cv=5, scoring='neg_mean_squared_error', random_state=42)
+    # n_iter: the number of the different values for hyper parameter in search running (P74)
+    rnd_search.fit(housing_prepared, housing_labels)
+    cvres = rnd_search.cv_results_
+    for mean_score, params in zip(cvres["mean_test_score"], cvres["params"]):
+        # print(np.sqrt(-mean_score), params)
+        pass
+        # output:  10 iterations: best param 7*180
+        # 49157.171340988294{'max_features': 7, 'n_estimators': 180}
+        # 51413.92656821079{'max_features': 5, 'n_estimators': 15}
+        # 50805.51558518083{'max_features': 3, 'n_estimators': 72}
+        # 50856.794284175405{'max_features': 5, 'n_estimators': 21}
+        # 49290.97465838148{'max_features': 7, 'n_estimators': 122}
+        # 50782.43794687328{'max_features': 3, 'n_estimators': 75}
+        # 50689.00847519324{'max_features': 3, 'n_estimators': 88}
+        # 49618.00702383847{'max_features': 5, 'n_estimators': 100}
+        # 50473.304986200324{'max_features': 3, 'n_estimators': 150}
+        # 64428.13365969648{'max_features': 5, 'n_estimators': 2}
+
+    # find out the importance of the regression
+
+    feature_importances = grid_search.best_estimator_.feature_importances_
+    # feature_importances: the related importance of 16 columns to the regression defined
+    extra_attribs = ["rooms_per_household", "pop_per_household", "bedrooms_per_room"]  # new added features
+    cat_encoder = cat_pipeline.named_steps["cat_encoder"]
+    cat_one_hot_attribs = list(cat_encoder.categories_[0])  # ['<1H OCEAN', 'INLAND', 'ISLAND', 'NEAR BAY','NEAR OCEAN']
+    attributes = num_attribs + extra_attribs + cat_one_hot_attribs  # total 16 columns features
+    sorted_result = sorted(zip(feature_importances, attributes), reverse=True)  # reverse=True: descending order
+    # print(sorted_result)
+    # output:
+    # [(0.2857861152762817, 'median_income'), (0.1324122696549764, 'INLAND'), (0.09909466430417471,'pop_per_household'),
+    #  (0.09277095010645679, 'longitude'), (0.09036715907531163, 'bedrooms_per_room'), (0.08350703833591074,'latitude'),
+    #  (0.060899454099257934, 'rooms_per_household'), (0.04183603293822083, 'housing_median_age'),
+    #  (0.022014693286380782, 'population'), (0.02120289808247002, 'total_rooms'),
+    #  (0.019426620755410805, 'total_bedrooms'), (0.018613324304780684, 'households'),(0.01836309038370023,'<1H OCEAN'),
+    #  (0.007851413742625421, 'NEAR OCEAN'), (0.005784846540272982, 'NEAR BAY'), (6.942911376821082e-05, 'ISLAND')]
+
+    # Test: evaluate the final model on test set
+
+    final_model = grid_search.best_estimator_  # the best regression (just like lin_reg or svr_reg)
+    X_test = strat_test_set.drop("median_house_value", axis=1)  # drop y from test data set X_test
+    y_test = strat_test_set["median_house_value"].copy()  # y: labels
+    X_test_prepared = full_pipeline.transform(X_test)  # prepare X_test
+    final_predictions = final_model.predict(X_test_prepared)  # compute new y based on prepared X_test set
+    final_mse = mean_squared_error(y_test, final_predictions)
+    # display_scores(final_mse)
+    #     output:
+    #     Mean: 2128657156.94195
+    #     Standard deviation: 0.0
+    final_rmse = np.sqrt(final_mse)
+    # display_scores(final_rmse)
+    #       output:
+    #       Mean: 46137.372670557976
+    #       Standard deviation: 0.0
