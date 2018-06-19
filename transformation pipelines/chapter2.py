@@ -240,7 +240,7 @@ if __name__ == '__main__':
     cbar.ax.set_yticklabels(["$%dk" % (round(v / 1000)) for v in tick_values], fontsize=14)
     cbar.set_label('Median House Value', fontsize=16)  # title
     plt.legend(fontsize=16)  # show the legend "population"
-    # plt.show()
+    plt.show()
 
     # correlations
 
