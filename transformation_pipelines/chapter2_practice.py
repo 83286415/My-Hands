@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.pipeline import Pipeline
 from sklearn.pipeline import FeatureUnion
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -8,6 +9,9 @@ from sklearn.svm import SVR
 from sklearn.preprocessing.future_encoders import OrdinalEncoder, OneHotEncoder
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
+from scipy.stats import expon, reciprocal
 from chapter2 import display_scores, load_housing_data, HOUSING_PATH, DataFrameSelector, CombinedAttributesAdder
 
 
@@ -76,9 +80,10 @@ if __name__ == '__main__':
     full_pipeline = FeatureUnion(transformer_list=[
         ("num_pipeline", num_pipeline),
         ("cat_pipeline", cat_pipeline),
-    ])  # unite two pipelines into one
+    ])
 
     housing_prepared = full_pipeline.fit_transform(housing)
+    # print(housing_prepared)
 
     # Q1:
     svm_reg = SVR(kernel="rbf", C=10, gamma="auto")
@@ -86,7 +91,7 @@ if __name__ == '__main__':
     housing_predictions = svm_reg.predict(housing_prepared)
     svm_mse = mean_squared_error(housing_labels, housing_predictions)
     svm_rmse = np.sqrt(svm_mse)
-    display_scores(svm_rmse)
+    # display_scores(svm_rmse)
     # output:
     # kernel=linear      C=1        score:106874       mean: 106874        std: 0.0     linear default
     # kernel=linear      C=10        score:79574       mean: 79574        std: 0.0      increase C to 10
@@ -108,10 +113,10 @@ if __name__ == '__main__':
     predict_pipeline = Pipeline([
         ('predictor', Predictor(housing_labels))])
     final_pipeline = FeatureUnion(transformer_list=[
-        ("predict_pipeline", predict_pipeline),
         ("full_pipeline", full_pipeline),
+        ("predict_pipeline", predict_pipeline),
     ])
-    final_result = final_pipeline.transform(housing_prepared)
+    # final_result = final_pipeline.fit_transform(housing, housing_labels)
     # TODO: Q4 is half-baked.
 
     # Q5
@@ -119,3 +124,60 @@ if __name__ == '__main__':
     #     Number of jobs to run in parallel.
     # verbose : integer
     #     Controls the verbosity: the higher, the more messages.
+
+    # solution:
+
+    # Q1
+    param_grid = [
+        {'kernel': ['linear'], 'C': [10., 30., 100., 300., 1000., 3000., 10000., 30000.0]},
+        {'kernel': ['rbf'], 'C': [1.0, 3.0, 10., 30., 100., 300., 1000.0],
+         'gamma': [0.01, 0.03, 0.1, 0.3, 1.0, 3.0]},
+    ]  # multiple kernels and other params could be put in a grid search list "param_grid"!
+
+    svm_reg = SVR()
+    grid_search = GridSearchCV(svm_reg, param_grid, cv=5, scoring='neg_mean_squared_error', verbose=2, n_jobs=4)
+    grid_search.fit(housing_prepared, housing_labels)
+    # print(grid_search.cv_results_)
+    negative_mse = grid_search.best_score_
+    rmse = np.sqrt(-negative_mse)
+    # print(rmse)
+    # print(grid_search.best_params_)
+
+    # Q2
+    param_distribs = {
+        'kernel': ['linear', 'rbf'],
+        'C': reciprocal(20, 200000),  # 1/(log(200000/20))
+        'gamma': expon(scale=1.0),  # TODO: what are these expon and scale
+    }
+
+    svm_reg = SVR()
+    rnd_search = RandomizedSearchCV(svm_reg, param_distributions=param_distribs,
+                                    n_iter=50, cv=5, scoring='neg_mean_squared_error',
+                                    verbose=2, n_jobs=4, random_state=42)
+    rnd_search.fit(housing_prepared, housing_labels)
+    negative_mse = rnd_search.best_score_
+    rmse = np.sqrt(-negative_mse)
+
+    expon_distrib = expon(scale=1.)
+    samples = expon_distrib.rvs(10000, random_state=42)
+    plt.figure(figsize=(10, 4))
+    plt.subplot(121)
+    plt.title("Exponential distribution (scale=1.0)")
+    plt.hist(samples, bins=50)
+    plt.subplot(122)
+    plt.title("Log of this distribution")
+    plt.hist(np.log(samples), bins=50)
+    plt.show()
+
+    reciprocal_distrib = reciprocal(20, 200000)
+    samples = reciprocal_distrib.rvs(10000, random_state=42)
+    plt.figure(figsize=(10, 4))
+    plt.subplot(121)
+    plt.title("Reciprocal distribution (scale=1.0)")
+    plt.hist(samples, bins=50)
+    plt.subplot(122)
+    plt.title("Log of this distribution")
+    plt.hist(np.log(samples), bins=50)
+    plt.show()
+
+    # Q3
