@@ -6,7 +6,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import Imputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVR
-from sklearn.preprocessing.future_encoders import OrdinalEncoder, OneHotEncoder
+from sklearn.preprocessing.future_encoders import OneHotEncoder
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.model_selection import GridSearchCV
@@ -43,6 +43,24 @@ class Predictor(BaseEstimator, TransformerMixin):
         display_scores(svm_rmse)
         print("Q4")
         return data_set.values
+
+
+def indices_of_top_k(arr, k):
+    return np.sort(np.argpartition(np.array(arr), -k)[-k:])  # sort: make a new copy with ascending order (default)
+    # numpy.argpartition refer to my notebook or https://blog.csdn.net/weixin_37722024/article/details/64440133
+    # here return the first top index of larger elements
+
+
+class TopFeatureSelector(BaseEstimator, TransformerMixin):
+    def __init__(self, feature_importances, k):
+        self.feature_importances = feature_importances
+        self.k = k
+    def fit(self, X, y=None):
+        self.feature_indices_ = indices_of_top_k(self.feature_importances, self.k)
+        return self
+    def transform(self, X):
+        return X[:, self.feature_indices_]  # return those more important columns data set
+
 
 if __name__ == '__main__':
 
@@ -147,7 +165,7 @@ if __name__ == '__main__':
     param_distribs = {
         'kernel': ['linear', 'rbf'],
         'C': reciprocal(20, 200000),  # 1/(log(200000/20))
-        'gamma': expon(scale=1.0),  # TODO: what are these expon and scale
+        'gamma': expon(scale=1.0),  # f(x) = λexp(-λx)   scale:λ
     }
 
     svm_reg = SVR()
@@ -159,7 +177,7 @@ if __name__ == '__main__':
     rmse = np.sqrt(-negative_mse)
 
     expon_distrib = expon(scale=1.)
-    samples = expon_distrib.rvs(10000, random_state=42)
+    samples = expon_distrib.rvs(10000, random_state=42)  # rvs: draw sample
     plt.figure(figsize=(10, 4))
     plt.subplot(121)
     plt.title("Exponential distribution (scale=1.0)")
@@ -181,3 +199,35 @@ if __name__ == '__main__':
     plt.show()
 
     # Q3
+    k = 5
+    feature_importances = ['longitude', 'latitude', 'median_income', 'pop_per_hhold', 'INLAND']
+    preparation_and_feature_selection_pipeline = Pipeline([
+        ('preparation', full_pipeline),
+        ('feature_selection', TopFeatureSelector(feature_importances, k))
+    ])
+    housing_prepared_top_k_features = preparation_and_feature_selection_pipeline.fit_transform(housing)
+    print(housing_prepared_top_k_features[0:3])
+
+    # Q4
+    prepare_select_and_predict_pipeline = Pipeline([
+        ('preparation', full_pipeline),
+        ('feature_selection', TopFeatureSelector(feature_importances, k)),
+        ('svm_reg', SVR(**rnd_search.best_params_))  # add a regressor to predict =.=
+    ])
+    prepare_select_and_predict_pipeline.fit(housing, housing_labels)
+    some_data = housing.iloc[:4]
+    some_labels = housing_labels.iloc[:4]
+
+    print("Predictions:\t", prepare_select_and_predict_pipeline.predict(some_data))
+    print("Labels:\t\t", list(some_labels))
+
+    # Q5
+    param_grid = [
+        {'preparation__num_pipeline__imputer__strategy': ['mean', 'median', 'most_frequent'],
+         'feature_selection__k': list(range(1, len(feature_importances) + 1))}
+    ]
+
+    grid_search_prep = GridSearchCV(prepare_select_and_predict_pipeline, param_grid, cv=5,
+                                    scoring='neg_mean_squared_error', verbose=2, n_jobs=4)
+    grid_search_prep.fit(housing, housing_labels)
+    print(grid_search_prep.best_params_)

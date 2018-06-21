@@ -412,12 +412,12 @@ if __name__ == '__main__':
 
     some_data_prepared = full_pipeline.transform(some_data)  # prepare the data for testing via pipeline defined before
     # print("Predictions:", lin_reg.predict(some_data_prepared))  # some_data_prepared=X, y is defined in fit() above
-    some_data_predictions = lin_reg.predict(some_data_prepared)
+    some_data_predictions = lin_reg.predict(X=some_data_prepared)
     # some_data_predictions: the output of lig_reg.predict(X): new y
     # print("Labels:", list(some_labels))  # some_labels: y
 
     # predict and check the RMSE & MAE results
-    housing_predictions = lin_reg.predict(housing_prepared)
+    housing_predictions = lin_reg.predict(X=housing_prepared)
     lin_mse = mean_squared_error(housing_labels, housing_predictions)  # mean_squared_error(y, new_y)
     lin_rmse = np.sqrt(lin_mse)  # root-mean-square error
     # print(lin_rmse)  # the RMSE 68628 is too big. So the model under fits the train data set.
