@@ -55,9 +55,11 @@ class TopFeatureSelector(BaseEstimator, TransformerMixin):
     def __init__(self, feature_importances, k):
         self.feature_importances = feature_importances
         self.k = k
+
     def fit(self, X, y=None):
         self.feature_indices_ = indices_of_top_k(self.feature_importances, self.k)
         return self
+
     def transform(self, X):
         return X[:, self.feature_indices_]  # return those more important columns data set
 

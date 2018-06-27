@@ -49,7 +49,7 @@ class CombinedAttributesAdder(BaseEstimator, TransformerMixin):
 
     def transform(self, data_set, data_set_label=None):
         rooms_per_household = data_set[:, rooms_ix] / data_set[:, household_ix]  # rooms'count in one family
-        population_per_household = data_set[:, population_ix] / data_set[:, household_ix]  # the people count in one family
+        population_per_household = data_set[:, population_ix] / data_set[:, household_ix]  # the people count in family
         if self.add_bedrooms_per_room:
             bedrooms_per_room = data_set[:, bedrooms_ix] / data_set[:, rooms_ix]
             return np.c_[data_set, rooms_per_household, population_per_household,
@@ -526,6 +526,8 @@ if __name__ == '__main__':
     # print(grid_search.best_estimator_)  # the best forest_reg searched
     # print(grid_search.best_score_)
     # print(grid_search.best_params_)  # will show the best combination of max feature and n_esitmators
+    # best params output:
+    # {'bootstrap': False, 'max_features': 4, 'n_estimators': 90} can be used as input of SVR(**rnd_search.best_params_)
     # print(grid_search.best_estimator_)
     # output: RandomForestRegressor(bootstrap=False, criterion='mse', max_depth=None,
     #        max_features=4, max_leaf_nodes=None, min_impurity_decrease=0.0,
