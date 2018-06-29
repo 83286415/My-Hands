@@ -11,6 +11,8 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import cross_val_predict
 
+from sklearn.metrics import confusion_matrix
+
 ROOT_PATH = "D:\\AI\\handson-ml-master\\"
 CHAPTER_ID = "classification"
 
@@ -134,13 +136,25 @@ if __name__ == '__main__':
 
     # Performance Measures
 
-    sgd_val_result = cross_val_score(sgd_clf, X_train, y_train_5, cv=3, scoring="accuracy")
+    sgd_val_result = cross_val_score(sgd_clf, X_train, y_train_5, cv=3, scoring="accuracy")  # return scores
+    # the "accuracy" should not be used for skewed data set
     # print(sgd_val_result)  # return a score of a classifier's cross validation, score > 95% is great.
     # output: [0.9502  0.96565 0.96495] (the score of each run of estimator's validation, cv=3)
     # The score means the accuracy of this classifier, which tells 5 in numbers, is about 96%
 
     never_5_clf = Never5Classifier()  # filter the number 5 pictures
-    never5_val_result = cross_val_score(never_5_clf, X_train, y_train_5, cv=3, scoring="accuracy")
-    print(never5_val_result)  # output: [0.909   0.90715 0.9128 ]
+    never5_val_result = cross_val_score(never_5_clf, X_train, y_train_5, cv=3, scoring="accuracy")  # return scores
+    # print(never5_val_result)  # output: [0.909   0.90715 0.9128 ]
     # the accuracy is about 90% for pictures of number 5 is about 10% in total pictures
 
+    # confusion matrix
+    # measure performance by confusion matrix (refer to P85 in my hands book)
+    y_train_pred = cross_val_predict(sgd_clf, X_train, y_train_5, cv=3)  # return predictions based on each test sets
+    # print(y_train_pred)  # output: [False False False ... False False False]
+
+    y_train_5_matrix = confusion_matrix(y_train_5, y_train_pred)  # confusion matrix refer to my note or book P85 pic
+    # print(y_train_5_matrix)
+
+    y_train_perfect_predictions = y_train_5
+    y_train_perfect_5_matrix = confusion_matrix(y_train_5, y_train_perfect_predictions)
+    print(y_train_perfect_5_matrix)
