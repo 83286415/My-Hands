@@ -10,8 +10,9 @@ from sklearn.datasets import fetch_mldata
 from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import cross_val_predict
-
+from sklearn.metrics import precision_score, recall_score
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import f1_score
 
 ROOT_PATH = "D:\\AI\\handson-ml-master\\"
 CHAPTER_ID = "classification"
@@ -153,8 +154,31 @@ if __name__ == '__main__':
     # print(y_train_pred)  # output: [False False False ... False False False]
 
     y_train_5_matrix = confusion_matrix(y_train_5, y_train_pred)  # confusion matrix refer to my note or book P85 pic
-    # print(y_train_5_matrix)
+    # print(y_train_5_matrix)  # output: matrix like [[TN, FP], [FN, TP]]
+    #  output: [[53272  1307], [ 1077  4344]] FP or FN is not 0
 
     y_train_perfect_predictions = y_train_5
     y_train_perfect_5_matrix = confusion_matrix(y_train_5, y_train_perfect_predictions)
-    print(y_train_perfect_5_matrix)
+    # print(y_train_perfect_5_matrix)  # output: [[54579  0], [0  5421]] FP & FN == 0, because all predictions are right
+
+    # precision
+    # precision = TP / (TP + FP)
+    prediction_precision = precision_score(y_train_5, y_train_pred)  # input: y_true, y_predicted
+    # print(prediction_precision)
+    # output: 0.7687135020350381.   That is 4344 / (4344 + 1307) as above
+    # The best value is 1 and the worst value is 0.
+
+    # recall
+    # recall = TP / (TP + FN)
+    prediction_recall = recall_score(y_train_5, y_train_pred)  # # input: y_true, y_predicted
+    # print(prediction_recall)
+    # output: 0.801328168234643     That is 4344 / (4344 + 1077) as above
+    # The best value is 1 and the worst value is 0.
+
+    # f1 score
+    # f1 = TP / [TP + (FN + FP)/2]  That is F1 = 2 * (precision * recall) / (precision + recall)
+    prediction_f1 = f1_score(y_train_5, y_train_pred)
+    # print(prediction_f1)  # output: 0.7846820809248555
+
+    # precision and recall trade off
+
