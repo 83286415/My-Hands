@@ -13,6 +13,7 @@ from sklearn.model_selection import cross_val_predict
 from sklearn.metrics import precision_score, recall_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import f1_score
+from sklearn.metrics import precision_recall_curve
 
 ROOT_PATH = "D:\\AI\\handson-ml-master\\"
 CHAPTER_ID = "classification"
@@ -59,6 +60,22 @@ class Never5Classifier(BaseEstimator):
 
     def predict(self, X):
         return np.zeros((len(X), 1), dtype=bool)  # when get a sample picture like 5, return a zero array.
+
+
+def plot_precision_recall_vs_threshold(precisions, recalls, thresholds):
+    plt.plot(thresholds, precisions[:-1], "b--", label="Precision", linewidth=2)  # blue dotted line; plot(x, y axis)
+    plt.plot(thresholds, recalls[:-1], "g-", label="Recall", linewidth=2)  # green line; [:-1] ignore the last element
+    # the last element of precisions and recalls lists are 1. so ignore it as above. refer to precision_recall_curve doc
+    plt.xlabel("Threshold", fontsize=16)  # the label
+    plt.legend(loc="upper left", fontsize=16)  # show the label on the upper left of the picture
+    plt.ylim([0, 1])  # y axis limit [0, 1]
+
+
+def plot_precision_vs_recall(precisions, recalls):
+    plt.plot(recalls, precisions, "b-", linewidth=2)  # x axis is recall, y axis is precisions
+    plt.xlabel("Recall", fontsize=16)
+    plt.ylabel("Precision", fontsize=16)
+    plt.axis([0, 1, 0, 1])  # axises' limits
 
 
 if __name__ == '__main__':
@@ -180,5 +197,45 @@ if __name__ == '__main__':
     prediction_f1 = f1_score(y_train_5, y_train_pred)
     # print(prediction_f1)  # output: 0.7846820809248555
 
-    # precision and recall trade off
+    # precision and recall trade off (refer to hands on book P87)
+    y_some_digit_score = sgd_clf.decision_function([some_digit])  # output a score of classification
+    # print(y_some_digit_score)  # output: [34930.7725491]
 
+    threshold = 0  # if y score > threshold, then returns true
+    y_some_digit_pred = (y_some_digit_score > threshold)
+    # print(y_some_digit_pred)  # output: [ True]
+
+    # another example of decision score function
+    threshold = 200000  # raise the threshold value
+    y_some_digit_pred = (y_some_digit_score > threshold)
+    # print(y_some_digit_pred)  # output: [False]
+
+    y_train_scores = cross_val_predict(sgd_clf, X_train, y_train_5, cv=3,
+                                       method="decision_function")  # add "method" to get scores instead of True, False
+    # print(y_train_scores)
+    # output: [ -434076.49813641 -1825667.15281624  -767086.76186905 ... -565357.11420164  -366599.16018198]
+
+    # plot the scores cures of precisions and recalls to make the trade off relationship clear
+    precisions, recalls, thresholds = precision_recall_curve(y_train_5, y_train_scores)
+    plt.figure(figsize=(8, 4))
+    plot_precision_recall_vs_threshold(precisions, recalls, thresholds)
+    plt.xlim([-700000, 700000])
+    save_fig("precision_recall_vs_threshold_plot")
+    # plt.show()
+
+    # try to set the threshold to get 90% precision
+    y_train_pred_90 = (y_train_scores > 70000)
+    precision_90 = precision_score(y_train_5, y_train_pred_90)
+    # print(precision_90)  # output: 0.8659205116491548   It's about 90% precision. So the threshold could be 70000.
+    recall_with_precision_90 = recall_score(y_train_5, y_train_pred_90)
+    # print(recall_with_precision_90)  # output: 0.6993174691016417
+    # Note: Do not try to get too high precision. It will slow your python running.
+
+    # plot the precisions against recalls curve
+    plt.figure(figsize=(8, 6))
+    plot_precision_vs_recall(precisions, recalls)
+    # use "precision_recall_curve" 's return to plot. because it's a list of precision and recall values.
+    save_fig("precision_vs_recall_plot")
+    # plt.show()
+
+    # ROC Curve
