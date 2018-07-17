@@ -10,10 +10,14 @@ from sklearn.datasets import fetch_mldata
 from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import cross_val_predict
+from sklearn.ensemble import RandomForestClassifier
+
 from sklearn.metrics import precision_score, recall_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import f1_score
 from sklearn.metrics import precision_recall_curve
+from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_auc_score
 
 ROOT_PATH = "D:\\AI\\handson-ml-master\\"
 CHAPTER_ID = "classification"
@@ -62,20 +66,29 @@ class Never5Classifier(BaseEstimator):
         return np.zeros((len(X), 1), dtype=bool)  # when get a sample picture like 5, return a zero array.
 
 
-def plot_precision_recall_vs_threshold(precisions, recalls, thresholds):
-    plt.plot(thresholds, precisions[:-1], "b--", label="Precision", linewidth=2)  # blue dotted line; plot(x, y axis)
-    plt.plot(thresholds, recalls[:-1], "g-", label="Recall", linewidth=2)  # green line; [:-1] ignore the last element
+def plot_precision_recall_vs_threshold(_precisions, _recalls, _thresholds):
+    plt.plot(_thresholds, _precisions[:-1], "b--", label="Precision", linewidth=2)  # blue dotted line; plot(x, y axis)
+    plt.plot(_thresholds, _recalls[:-1], "g-", label="Recall", linewidth=2)  # green line; [:-1] ignore the last element
     # the last element of precisions and recalls lists are 1. so ignore it as above. refer to precision_recall_curve doc
+    # http://www.360doc.com/content/15/0113/23/16740871_440559122.shtml  refer to the parameters in plot function
     plt.xlabel("Threshold", fontsize=16)  # the label
     plt.legend(loc="upper left", fontsize=16)  # show the label on the upper left of the picture
     plt.ylim([0, 1])  # y axis limit [0, 1]
 
 
-def plot_precision_vs_recall(precisions, recalls):
-    plt.plot(recalls, precisions, "b-", linewidth=2)  # x axis is recall, y axis is precisions
+def plot_precision_vs_recall(_precisions, _recalls):
+    plt.plot(_recalls, _precisions, "b-", linewidth=2)  # x axis is recall, y axis is precisions
     plt.xlabel("Recall", fontsize=16)
     plt.ylabel("Precision", fontsize=16)
     plt.axis([0, 1, 0, 1])  # axises' limits
+
+
+def plot_roc_curve(_fpr, _tpr, label=None):
+    plt.plot(_fpr, _tpr, linewidth=2, label=label)
+    plt.plot([0, 1], [0, 1], 'k--')  # k--: black dotted line; range: x axis 0~1, y axis 0~1
+    plt.axis([0, 1, 0, 1])  # axises' limits
+    plt.xlabel('False Positive Rate', fontsize=16)
+    plt.ylabel('True Positive Rate', fontsize=16)
 
 
 if __name__ == '__main__':
@@ -239,3 +252,48 @@ if __name__ == '__main__':
     # plt.show()
 
     # ROC Curve
+    # ROC: x axis = FPR = FP / (FP + TN) = 1 - TNR = 1 - specificity
+    #      y axis = TPR = TP / (TP + FN) = recall = sensitivity
+    fpr, tpr, thresholds = roc_curve(y_train_5, y_train_scores)  # input: y_true, y_score
+
+    plt.figure(figsize=(8, 6))
+    plot_roc_curve(fpr, tpr)  # the ROC curve is the curve of the sgd classifier
+    save_fig("roc_curve_plot")
+    # plt.show()
+
+    # AUC
+    # AUC: the area under the curve
+    # perfect classifier AUC = 1; purely random classifier AUC = 0.5
+    y_sgd_auc = roc_auc_score(y_train_5, y_train_scores)
+    # print(y_auc)  # output: 0.9624496555967155  it's good as it's close to 1.
+
+    forest_clf = RandomForestClassifier(random_state=42)  # define a random forest classifier
+    y_probas_forest = cross_val_predict(forest_clf, X_train, y_train_5, cv=3,
+                                        method="predict_proba")
+    # decision_function method not in random forest, so use predict_proba instead.
+    # But predict_proba returns a probability instead of y_score. So use this probability as the score.
+
+    # print(y_probas_forest)
+    # output: n dimension array shows each picture's probability of representing a 5 or not. [1  0] may shows it's non-5
+    # [[1.  0.]
+    #  [0.9 0.1]
+    # [1. 0.]
+    # ...
+    # [1. 0.]
+    # [1.  0.]
+    # [1. 0.]]
+
+    y_scores_forest = y_probas_forest[:, 1]  # use [0.9  0.1] as the score of this random forest classifier
+    fpr_forest, tpr_forest, thresholds_forest = roc_curve(y_train_5, y_scores_forest)  # get forest's fpr, tpr for ROC
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr, tpr, "b:", linewidth=2, label="SGD")  # plot SGD classifier's curve: blue dotted line
+    plot_roc_curve(fpr_forest, tpr_forest, "Random Forest")  # plot the random forest classifier's curve: blue line
+    plt.legend(loc="lower right", fontsize=16)
+    save_fig("roc_curve_comparison_plot")
+    # plt.show()  # output: the random forest is better than SGD curve
+
+    y_forest_auc = roc_auc_score(y_train_5, y_scores_forest)
+    # print(y_forest_auc)  # output: 0.9931243366003829 it's better than sgd auc value.
+
+    # multi-class classification
