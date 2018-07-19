@@ -11,6 +11,8 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import cross_val_predict
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.multiclass import OneVsOneClassifier
+from sklearn.preprocessing import StandardScaler
 
 from sklearn.metrics import precision_score, recall_score
 from sklearn.metrics import confusion_matrix
@@ -111,7 +113,7 @@ if __name__ == '__main__':
     # print(X.shape)  # output: (70000, 784) 70000 images, that is 70000 rows; 784 = 28 * 28 (pixel)
     # print(y.shape)  # (70000) 70000 rows, so 70000 labels
 
-    some_digit = X[36011]  # the 36001th image
+    some_digit = X[36011]  # the 36001th image, its number is 5
     # some_digit_image = some_digit.reshape(28, 28)  # turn 784 elements into 28*28 array
 
     # codes below could be replaced by def plot_digit(data)
@@ -296,4 +298,52 @@ if __name__ == '__main__':
     y_forest_auc = roc_auc_score(y_train_5, y_scores_forest)
     # print(y_forest_auc)  # output: 0.9931243366003829 it's better than sgd auc value.
 
-    # multi-class classification
+    # multi-class classification OvA OvO
+    # binary classifier and multi-class classifier refer to my notebook
+
+    # 1. OvA
+    sgd_clf.fit(X_train, y_train)  # train the classifier
+    sgd_clf.predict([some_digit])  # some_digit == 5
+    some_digit_scores = sgd_clf.decision_function([some_digit])  # the classifier runs with the OvA strategy
+    # OvA strategy makes sure all classes have their own binary classifier. And all of them will run over the object.
+
+    # print(some_digit_scores)
+    # the output is list of ten scores, which are the scores of number 0-9. The sixth is highest for some_digit is 5.
+    # output: [[-211564.05865206 -219445.21022825 -461783.93374972  -16252.73324556 -288195.70441995   34930.7725491
+    # -335369.12969411 -282270.17392149 -25547.54596887 -339794.68286819]]
+
+    some_digit_max = np.argmax(some_digit_scores)
+    # print(some_digit_max)  # output: 5  The max score's index is 5.
+    # print(sgd_clf.classes_)  # output: [0. 1. 2. 3. 4. 5. 6. 7. 8. 9.]
+
+    # 2. OvO
+    ovo_clf = OneVsOneClassifier(SGDClassifier(max_iter=5, random_state=42))  # force sgd into OvO
+    ovo_clf.fit(X_train, y_train)
+    ovo_predicted = ovo_clf.predict([some_digit])
+    # print(ovo_predicted)  # output: [5.]
+    # The binary classifier.predict returns True in this case but OvO returns 5 for OvO runs 45 classifiers.
+
+    ovo_clf_count = len(ovo_clf.estimators_)  # show the count of ovo_clf's classifiers
+    # print(ovo_clf_count)  # output: 45      That is N*(N-1)/2, N=10
+
+    # multi-classifier forest as the OvO contrast
+    forest_clf.fit(X_train, y_train)  # forest_clf is capable of handling multi-classes. No need to force it into OvO
+    forest_clf.predict([some_digit])  # so its predict returns [5]
+    forest_probability_predicted = forest_clf.predict_proba([some_digit])
+    # print(forest_probability_predicted)
+    # output: [[0.1 0.  0.  0.  0.  0.9 0.  0.  0.  0. ]] the probability of each class can be assigned
+
+    # evaluate the sgd classifier with y_train set in OvA
+    sgd_val_result = cross_val_score(sgd_clf, X_train, y_train, cv=3, scoring="accuracy")
+    # print(sgd_val_result)  # output: [0.84063187 0.84899245 0.86652998]
+    # The scores of 3 times validation are lower than that with parameter y_train_5 for this time its ten classifiers.
+
+    # StandardScaler improves the validation score of sgd classifier (hands on book P96)
+    scalar = StandardScaler()  # define a scalar
+    X_train_scaled = scalar.fit_transform(X_train.astype(np.float64))
+    # astype: transform np array elements' data type into float64
+    # Here the fit and transform can standardize X_train set and reduce the error
+    sgd_val_result_improved = cross_val_score(sgd_clf, X_train_scaled, y_train, cv=3, scoring="accuracy")
+    # print(sgd_val_result_improved)  # output: [0.91011798 0.90874544 0.906636  ]  the score is higher than line338
+
+    # Error Analysis

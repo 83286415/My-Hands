@@ -333,6 +333,7 @@ if __name__ == '__main__':
     # print(housing_cat_1hot.toarray())
 
     # standardscaler
+    # standardscaler's effect refer to chapter3.py line 338
 
     standardscaler = StandardScaler(copy=True, with_mean=True, with_std=True)  # define a scalar
     STANDARDSCALER_FIT = standardscaler.fit(housing_tr)  # compute mean and std of housing_tr (train set)
