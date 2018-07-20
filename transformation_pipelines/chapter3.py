@@ -29,7 +29,7 @@ def save_fig(fig_id, tight_layout=True):
     path = os.path.join(ROOT_PATH, "images", CHAPTER_ID, fig_id + ".png")
     print("Saving figure", fig_id)
     if tight_layout:
-        plt.tight_layout()
+        plt.tight_layout()  # tight_layout: picture border auto-control
     plt.savefig(path, format='png', dpi=300)
 
 
@@ -91,6 +91,14 @@ def plot_roc_curve(_fpr, _tpr, label=None):
     plt.axis([0, 1, 0, 1])  # axises' limits
     plt.xlabel('False Positive Rate', fontsize=16)
     plt.ylabel('True Positive Rate', fontsize=16)
+
+
+def plot_confusion_matrix(matrix):
+    cmap = matplotlib.cm.jet  # set the color map to "jet" (low: blue - > high: red)
+    fig = plt.figure(figsize=(8, 8))  # 8*8 inches picture include the border frame
+    ax = fig.add_subplot(111)  # add the matrix image, 1:row count, 1:column count, 1:picture position.in row and column
+    cax = ax.matshow(matrix, cmap=cmap)  # plot the matrix image with color map
+    fig.colorbar(cax)  # show the color bar
 
 
 if __name__ == '__main__':
@@ -347,3 +355,55 @@ if __name__ == '__main__':
     # print(sgd_val_result_improved)  # output: [0.91011798 0.90874544 0.906636  ]  the score is higher than line338
 
     # Error Analysis
+
+    y_train_pred = cross_val_predict(sgd_clf, X_train_scaled, y_train, cv=3)  # y_train, not y_train_5.So 10 classifiers
+    conf_mx = confusion_matrix(y_train, y_train_pred)
+    # print(conf_mx)
+    # output: a 10 dimension array for ten classifier of number 0~9. The sixth row is the 5s classifier, 4582 classified
+    # [[5725    3   24    9   10   49   50   10   39    4]
+    #  [   2 6493   43   25    7   40    5   10  109    8]
+    #  [  51   41 5321  104   89   26   87   60  166   13]
+    #  [  47   46  141 5342    1  231   40   50  141   92]
+    #  [  19   29   41   10 5366    9   56   37   86  189]
+    #  [  73   45   36  193   64 4582  111   30  193   94]
+    #  [  29   34   44    2   42   85 5627   10   45    0]
+    #  [  25   24   74   32   54   12    6 5787   15  236]
+    #  [  52  161   73  156   10  163   61   25 5027  123]
+    #  [  43   35   26   92  178   28    2  223   82 5240]]
+
+    # plot the confusion matrix
+    # plt.matshow(conf_mx, cmap=plt.cm.gray)  # this can plot a gray matrix image without a color bar
+    plot_confusion_matrix(conf_mx)  # plot a matrix with color bar
+    save_fig("confusion_matrix_plot", tight_layout=False)  # tight_layout: picture border auto-control
+    # plt.show()
+
+    # plot the confusion matrix with error rate
+    row_sums = conf_mx.sum(axis=1, keepdims=True)  # axis=1 (y axis). so it returns the sums of each row (classifier).
+    # print(row_sums)  # output: [[5923] [6742] [5958] [6131] [5842] [5421] [5918] [6265] [5851] [5949]]
+    norm_conf_mx = conf_mx / row_sums  # norm_conf_mx value: big: error - > small: correct
+    # print(norm_conf_mx)  # output the array with each element divided by row_sums accordingly
+    np.fill_diagonal(norm_conf_mx, 0)  # replace the diagonal elements with 0 in this array
+    plt.matshow(norm_conf_mx, cmap=plt.cm.gray)  # the color of diagonal elements should be black for their values are 0
+    save_fig("confusion_matrix_errors_plot", tight_layout=False)
+    # plt.show()  # classified correctly: black (smaller value) - > misclassified: white (bigger value)
+
+    # Analysing individual error on 3 and 5 classifier
+    cl_a, cl_b = 3, 5
+    X_aa = X_train[(y_train == cl_a) & (y_train_pred == cl_a)]  # the picture of all 3 label in y_train and predicted
+    X_ab = X_train[(y_train == cl_a) & (y_train_pred == cl_b)]  # X_train[label_set_index]
+    X_ba = X_train[(y_train == cl_b) & (y_train_pred == cl_a)]  # &: the intersection of y label and y predicted label
+    X_bb = X_train[(y_train == cl_b) & (y_train_pred == cl_b)]
+
+    plt.figure(figsize=(8, 8))
+    plt.subplot(221)  # 4 matrix image, 2 rows, 2 columns, position: 1 (left upper)
+    plot_digits(X_aa[:25], images_per_row=5)  # the first 25 elements
+    plt.subplot(222)  # position: 2 right upper
+    plot_digits(X_ab[:25], images_per_row=5)
+    plt.subplot(223)  # position: 3 left bottom
+    plot_digits(X_ba[:25], images_per_row=5)
+    plt.subplot(224)  # position: 4 right bottom
+    plot_digits(X_bb[:25], images_per_row=5)
+    save_fig("3_5_error_analysis_digits_plot")
+    # plt.show()
+
+    # multi-label classification
