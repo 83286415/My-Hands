@@ -13,6 +13,7 @@ from sklearn.model_selection import cross_val_predict
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.multiclass import OneVsOneClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
 
 from sklearn.metrics import precision_score, recall_score
 from sklearn.metrics import confusion_matrix
@@ -147,8 +148,8 @@ if __name__ == '__main__':
     X_train, y_train = X_train[shuffle_index], y_train[shuffle_index]  # shuffle the train set
 
     sample_number = 5
-    y_train_5 = (y_train == sample_number)  # return a list: if 5, then y_train_5 is True. Else, y_train_5 is False.
-    y_test_5 = (y_test == sample_number)
+    y_train_5 = (y_train == sample_number)  # return a np list: if 5, then y_train_5 is True. Else, y_train_5 is False.
+    y_test_5 = (y_test == sample_number)  # actually it returns a np matrix. For this case, it is a list as above.
 
     sgd_clf = SGDClassifier(max_iter=5, random_state=42)  # define a SGD classifier with seed == 42
     sgd_clf_FIT = sgd_clf.fit(X_train, y_train_5)  # train X
@@ -407,3 +408,53 @@ if __name__ == '__main__':
     # plt.show()
 
     # multi-label classification
+
+    # make multi-label train target data set
+    y_train_large = (y_train >= 7)
+    y_train_odd = (y_train % 2 == 1)
+    y_multi_label = np.c_[y_train_large, y_train_odd]  # join the left np matrix to the right np matrix
+
+    knn_clf = KNeighborsClassifier()  # define a multi-label classifier
+    knn_clf_FIT = knn_clf.fit(X_train, y_multi_label)  # train this classifier with multi-target data set
+    # print(knn_clf_FIT)  # output:
+    # KNeighborsClassifier(algorithm='auto', leaf_size=30, metric='minkowski',
+    #        metric_params=None, n_jobs=1, n_neighbors=5, p=2,
+    #        weights='uniform')
+
+    # test this classifier with some digit 5
+    some_digit_knn_result = knn_clf.predict([some_digit])  # some_digit is 5
+    # print(some_digit_knn_result)  # output: [[False  True]] The first False is large label; The 2nd True is odd label.
+
+    # evaluate the multi-label classifier with F1 score
+    # note: it will take a very long time to compute the F1 score. So comment it when running this py file
+    y_train_knn_pred = cross_val_predict(knn_clf, X_train, y_multi_label, cv=3, n_jobs=-1)
+    multi_label_f1 = f1_score(y_multi_label, y_train_knn_pred, average="macro")
+    # average=macro, f1=unweighted mean; average=weighted, f1=weighted mean, maybe not between precision and recall
+    # print(multi_label_f1)  # output: 0.97709078477525002
+
+    # multi-output classification
+
+    # make train data set with noise
+    noise = np.random.randint(0, 100, (len(X_train), 784))  # low=0, high=100, size=(len(X_train), 784)
+    # len(X_train)=60000, 784=28*28     To generate a 6000*28*28 random int (0<=int<100)
+    X_train_mod = X_train + noise  # the elements in the same row # and column # can +-*/ compute
+    # the code above is to add noise into each pixel of images
+    noise = np.random.randint(0, 100, (len(X_test), 784))
+    X_test_mod = X_test + noise
+    y_train_mod = X_train  # change the target into original train set as a contrast
+    y_test_mod = X_test
+
+    # plot the noisy image the original image
+    some_index = 5500  # number 5
+    plt.subplot(121)  # one row two columns: position 1 is left upper one
+    plot_digit(X_test_mod[some_index])
+    plt.subplot(122)
+    plot_digit(y_test_mod[some_index])
+    save_fig("noisy_digit_example_plot")
+
+    # remove the noise with multi-output classifier KNeighborsClassifier()
+    knn_clf.fit(X_train_mod, y_train_mod)  # train the classifier(noisy_data, target_data)
+    clean_digit = knn_clf.predict([X_test_mod[some_index]])  # remove the noise
+    plot_digit(clean_digit)
+    save_fig("cleaned_digit_example_plot")
+    plt.show()
