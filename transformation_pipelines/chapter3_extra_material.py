@@ -60,7 +60,7 @@ if __name__ == '__main__':
     knn_clf = KNeighborsClassifier(n_jobs=4, weights='distance', n_neighbors=4)  # n_jobs -1: low cpu usage
     # distance: the point is more closer, its weight is greater; n_neighbors: choose 4 neighbor points as references
 
-    # This piece of codes takes a long time to run. So comment it for testing followings.
+    # This piece of codes takes a long time to run. So comment it out for testing followings.
     knn_clf.fit(X_train, y_train)
     y_knn_pred = knn_clf.predict(X_test)
     knn_accuracy = accuracy_score(y_test, y_knn_pred)
@@ -83,6 +83,7 @@ if __name__ == '__main__':
     y_train_expanded = np.concatenate(y_train_expanded)
     print(X_train_expanded.shape, y_train_expanded.shape)  # output: (300000, 784) (300000,)
 
+    # knn fit takes a long time to run. So comment it out before testing.
     knn_clf.fit(X_train_expanded, y_train_expanded)  # train this classifier with expanded data sets
     y_knn_expanded_pred = knn_clf.predict(X_test)
     knn_accuracy_expanded = accuracy_score(y_test, y_knn_expanded_pred)
