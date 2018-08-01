@@ -10,6 +10,11 @@ from sklearn.model_selection import train_test_split
 import re
 from html import unescape
 from sklearn.base import BaseEstimator, TransformerMixin
+from scipy.sparse import csr_matrix
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+from sklearn.metrics import precision_score, recall_score
 
 
 DOWNLOAD_ROOT = "http://spamassassin.apache.org/old/publiccorpus/"
@@ -45,12 +50,12 @@ def get_email_structure(email):
     if isinstance(email, str):  # blank email
         return email
     payload = email.get_payload()  # get the payload of email and return a list.
-                                                # What's the payload of an email? TODO
+
     if isinstance(payload, list):
         return "multipart({})".format(", ".join([
             get_email_structure(sub_email)  # regression in email
             for sub_email in payload
-        ]))
+        ]))  # string like '{}, {}, {}'.format('a', 'b', 'c')  output: 'a, b, c'
     else:
         return email.get_content_type()
 
@@ -87,6 +92,76 @@ def email_to_text(email):
             html = content
     if html:
         return html_to_plain_text(html)  # return plain text finally
+
+
+class EmailToWordCounterTransformer(BaseEstimator, TransformerMixin):
+    def __init__(self, strip_headers=True, lower_case=True, remove_punctuation=True,
+                 replace_urls=True, replace_numbers=True, stemming=True):
+        self.strip_headers = strip_headers
+        self.lower_case = lower_case
+        self.remove_punctuation = remove_punctuation
+        self.replace_urls = replace_urls
+        self.replace_numbers = replace_numbers
+        self.stemming = stemming
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X, y=None):
+        X_transformed = []
+        for email in X:
+            text = email_to_text(email) or ""  # in case of no return from email to text function
+            if self.lower_case:
+                text = text.lower()
+            if self.replace_urls and url_extractor is not None:
+                urls = list(set(url_extractor.find_urls(text)))  # set type refer to my notebook
+                urls.sort(key=lambda url: len(url), reverse=True)  # sort from Z to A according to url's len
+                for url in urls:
+                    text = text.replace(url, " URL ")
+            if self.replace_numbers:
+                text = re.sub(r'\d+(?:\.\d*(?:[eE]\d+))?', 'NUMBER', text)  # replace numbers with 'NUMBER'
+            if self.remove_punctuation:
+                text = re.sub(r'\W+', ' ', text, flags=re.M)
+            word_counts = Counter(text.split())   # a new counter from an iterable(a list here)
+            if self.stemming and stemmer is not None:
+                stemmed_word_counts = Counter()  # a new empty counter
+                for word, count in word_counts.items():  # loop in text list and count the words
+                    stemmed_word = stemmer.stem(word)  # stem the words
+                    stemmed_word_counts[stemmed_word] += count  # count the stemmed words
+                word_counts = stemmed_word_counts
+            X_transformed.append(word_counts)  # append a dict{word: count} of each email to this list
+        return np.array(X_transformed)
+
+
+class WordCounterToVectorTransformer(BaseEstimator, TransformerMixin):
+    def __init__(self, vocabulary_size=1000):
+        self.vocabulary_size = vocabulary_size
+
+    def fit(self, X, y=None):
+        total_count = Counter()  # all emails counter
+        for word_count in X:
+            for word, count in word_count.items():
+                total_count[word] += min(count, 10)  # count the words exclude 'the' etc useless words
+        most_common = total_count.most_common()[:self.vocabulary_size]  # most common used words top 1000
+        self.most_common_ = most_common
+        self.vocabulary_ = {word: index + 1 for index, (word, count) in enumerate(most_common)}
+        # vocabulary is a dict with most used words as key and its order number as value
+        return self
+
+    def transform(self, X, y=None):
+        rows = []
+        cols = []
+        data = []
+        for row, word_count in enumerate(X):  # enumerate make X into [(0, email_0), (1, email_1), (2, email_2), ...]
+            for word, count in word_count.items():
+                rows.append(row)  # X's row number as well as the number of email, 0, 1, 2 ...
+                cols.append(self.vocabulary_.get(word, 0))  # get the word's index in vocabulary if none set it 0
+                # get method used for dict for finding the value by key
+                data.append(count)  # the count of the word most used
+        return csr_matrix((data, (rows, cols)), shape=(len(X), self.vocabulary_size + 1))
+        # return a Compressed Sparse Row matrix as below:
+        # csr_matrix((data, (row_ind, col_ind)), [shape = (M, N)])
+        # where ``data``, ``row_ind`` and ``col_ind`` satisfy the relationship ``a[row_ind[k], col_ind[k]] = data[k]``.
 
 
 if __name__ == '__main__':
@@ -151,4 +226,42 @@ if __name__ == '__main__':
 
     print('-----preparation done-----')
 
-    print('train classifier')
+    print('make classifier')
+
+    X_few = X_train[:3]  # train sample
+    X_few_wordcounts = EmailToWordCounterTransformer().fit_transform(X_few)  # count emails' words
+    print(X_few_wordcounts)  # output: a list includes 3 counters of emails words
+
+    vocab_transformer = WordCounterToVectorTransformer(vocabulary_size=10)
+    # define a classifier for top 10 words of each email
+    X_few_vectors = vocab_transformer.fit_transform(X_few_wordcounts)  # train data
+    print(X_few_vectors)  # output: (the top 10 most used words in which email, rank # in this email), used times
+    print(vocab_transformer.vocabulary_)
+    # output: {'the': 1, 'of': 2, 'and': 3, 'url': 4, 'to': 5, 'all': 6, 'in': 7, 'christian': 8, 'on': 9, 'by': 10}
+    print('----- make classifier done -----')
+
+    print('make pipelines and train data')
+
+    preprocess_pipeline = Pipeline([
+        ("email_to_wordcount", EmailToWordCounterTransformer()),
+        ("wordcount_to_vector", WordCounterToVectorTransformer()),
+    ])
+
+    X_train_transformed = preprocess_pipeline.fit_transform(X_train)  # train data
+
+    log_clf = LogisticRegression(random_state=42)  # define a regression
+    score = cross_val_score(log_clf, X_train_transformed, y_train, cv=3, verbose=3)
+    print(score.mean())
+    print('----- train data done -----')
+
+    print('evaluate the classifier')
+    X_test_transformed = preprocess_pipeline.transform(X_test)
+
+    log_clf = LogisticRegression(random_state=42)
+    log_clf.fit(X_train_transformed, y_train)
+
+    y_pred = log_clf.predict(X_test_transformed)
+
+    print("Precision: {:.2f}%".format(100 * precision_score(y_test, y_pred)))
+    print("Recall: {:.2f}%".format(100 * recall_score(y_test, y_pred)))
+    print('----- evaluation done -----')
