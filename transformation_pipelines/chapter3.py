@@ -22,7 +22,8 @@ from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import roc_curve
 from sklearn.metrics import roc_auc_score
 
-ROOT_PATH = "D:\\AI\\handson-ml-master\\"
+WORKING_PATH = os.path.abspath(os.path.join(os.getcwd(), '..'))
+ROOT_PATH = os.path.join(WORKING_PATH, 'Hands on SK and TS\\')
 CHAPTER_ID = "classification"
 
 

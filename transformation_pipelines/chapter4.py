@@ -22,7 +22,8 @@ plt.rcParams['xtick.labelsize'] = 12
 plt.rcParams['ytick.labelsize'] = 12
 
 # Where to save the figures
-ROOT_PATH = "D:\\AI\\handson-ml-master\\"
+WORKING_PATH = os.path.abspath(os.path.join(os.getcwd(), '..'))
+ROOT_PATH = os.path.join(WORKING_PATH, 'Hands on SK and TS\\')
 CHAPTER_ID = "training_linear_models"
 
 

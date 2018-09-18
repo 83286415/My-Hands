@@ -28,11 +28,11 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import RandomizedSearchCV
 
 
-ROOT_PATH = "D:\\AI\\handson-ml-master\\"
-# HOUSING_PATH = os.path.join("datasets", "housing")
+WORKING_PATH = os.path.abspath(os.path.join(os.getcwd(), '..'))
+ROOT_PATH = os.path.join(WORKING_PATH, 'Hands on SK and TS\\')
 HOUSING_TGZ_PATH = ROOT_PATH + "datasets\\housing\\housing.tgz"
 HOUSING_PATH = ROOT_PATH + "datasets\\housing\\"
-HOUSING_SAVED_PATH = ROOT_PATH + "my hands\\Model saved\\"
+HOUSING_SAVED_PATH = ROOT_PATH + "Model saved\\"
 
 
 # column index

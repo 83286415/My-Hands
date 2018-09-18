@@ -13,7 +13,9 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import RandomizedSearchCV
 
 
-DATA_PATH = "D:\\AI\\handson-ml-master\\datasets"
+WORKING_PATH = os.path.abspath(os.path.join(os.getcwd(), '..'))
+ROOT_PATH = os.path.join(WORKING_PATH, 'Hands on SK and TS\\')
+DATA_PATH = os.path.join(ROOT_PATH, 'datasets\\')
 TITANIC_PATH = os.path.join(DATA_PATH, "titanic")
 
 

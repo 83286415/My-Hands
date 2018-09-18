@@ -20,7 +20,9 @@ from sklearn.metrics import precision_score, recall_score
 DOWNLOAD_ROOT = "http://spamassassin.apache.org/old/publiccorpus/"
 HAM_URL = DOWNLOAD_ROOT + "20030228_easy_ham.tar.bz2"
 SPAM_URL = DOWNLOAD_ROOT + "20030228_spam.tar.bz2"
-DATA_PATH = "D:\\AI\\handson-ml-master\\datasets"
+WORKING_PATH = os.path.abspath(os.path.join(os.getcwd(), '..'))
+ROOT_PATH = os.path.join(WORKING_PATH, 'Hands on SK and TS\\')
+DATA_PATH = os.path.join(ROOT_PATH, 'datasets\\')
 SPAM_PATH = os.path.join(DATA_PATH, "spam")
 HAM_DIR = os.path.join(SPAM_PATH, "easy_ham")
 SPAM_DIR = os.path.join(SPAM_PATH, "spam")
