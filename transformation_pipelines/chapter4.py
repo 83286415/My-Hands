@@ -72,14 +72,14 @@ if __name__ == '__main__':
     plt.legend(loc="upper left", fontsize=14)
     plt.axis([0, 2, 0, 15])
     save_fig("linear_model_predictions")
-    plt.show()  # X_new and y_predict is red line almost in the middle of these blue dots
+    # plt.show()  # X_new and y_predict is red line almost in the middle of these blue dots
 
     # the process of computing best theta and make prediction could be replaced by lin_reg as below:
     lin_reg = LinearRegression()
     lin_reg.fit(X, y)  # no need to add ones array to X array
-    print(lin_reg.intercept_, lin_reg.coef_)  # output: [4.21509616] [[2.77011339]]  coef_ refer to chapter2
-    y_predict = lin_reg.predict(X_new)
-    print(y_predict)  # output: [[4.21509616] [9.75532293]]  the same result as above y_predict
+    # print(lin_reg.intercept_, lin_reg.coef_)  # output: [4.21509616] [[2.77011339]]  coef_ refer to chapter2
+    y_predict = lin_reg.predict(X=X_new)
+    # print(y_predict)  # output: [[4.21509616] [9.75532293]]  the same result as above y_predict
 
     theta_best_svd, residuals, rank, s = np.linalg.lstsq(X_b, y, rcond=1e-6)  # note: X_b input, not X
     # theta_best_svd: lin_reg.intercept_, lin_reg.coef_. the meaning of these refers to chapter2
@@ -87,8 +87,18 @@ if __name__ == '__main__':
     # rank: rank of X_b matrix input
     # s:
     # value less than rcond will be 0;
-    print(theta_best_svd, residuals, rank, s)
+    # print(theta_best_svd, residuals, rank, s)
     # output: [[4.21509616] [2.77011339]],  [80.6584564],  2,  [14.37020392  4.11961067]
 
     theta_best_svd = np.linalg.pinv(X_b).dot(y)  # pinv(X_b) == inv(X_b.T.dot(X_b)).dot(X_b.T)
-    print(theta_best_svd)  # output: [[4.21509616] [2.77011339]]
+    # print(theta_best_svd)  # output: [[4.21509616] [2.77011339]]
+
+    # Batch Gradient Descent
+    eta = 0.1  # learning rate η
+    n_iterations = 1000
+    m = 100
+    theta = np.random.randn(2, 1)  # theta θ = a random two row one column vector
+    for iteration in range(n_iterations):
+        gradients = 2 / m * X_b.T.dot(X_b.dot(theta) - y)  #
+        theta = theta - eta * gradients
+    print(theta)
