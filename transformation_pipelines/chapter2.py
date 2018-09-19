@@ -627,3 +627,4 @@ if __name__ == '__main__':
     #       output:
     #       Mean: 46137.372670557976
     #       Standard deviation: 0.0
+    print('Chapter2 Done.')
