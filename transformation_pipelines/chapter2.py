@@ -176,7 +176,7 @@ if __name__ == '__main__':
     # plt.show()
 
     # Divide by 1.5 to limit the number of income categories
-    housing["income_cat"] = np.ceil(housing["median_income"] / 1.5)  # ceil: round up to int value
+    housing["income_cat"] = np.ceil(housing["median_income"] / 1.5)  # ceil: round up to int value and returns a array
     # Label those above 5 as 5
     housing["income_cat"].where(housing["income_cat"] < 5, 5.0, inplace=True)
     # print(housing["income_cat"].value_counts())
@@ -184,7 +184,7 @@ if __name__ == '__main__':
     # plt.show()
 
     strat_train_set = housing
-    strat_test_set = housing
+    strat_test_set = housing  # start_test_set is a np array
     split = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)  # spliter of full data set
     for train_index, test_index in split.split(housing, housing["income_cat"]):  # housing=X, income_cat=y
         strat_train_set = housing.loc[train_index]
