@@ -180,6 +180,7 @@ if __name__ == '__main__':
     # Performance Measures
 
     sgd_val_result = cross_val_score(sgd_clf, X_train, y_train_5, cv=3, scoring="accuracy")  # return scores
+    # cv=3 3 folds: 2 for training and 1 for validation
     # the "accuracy" should not be used for skewed data set
     # print(sgd_val_result)  # return a score of a classifier's cross validation, score > 95% is great.
     # output: [0.9502  0.96565 0.96495] (the score of each run of estimator's validation, cv=3)
