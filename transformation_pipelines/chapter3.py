@@ -321,7 +321,7 @@ if __name__ == '__main__':
     # print(some_digit_scores)
     # the output is list of ten scores, which are the scores of number 0-9. The sixth is highest for some_digit is 5.
     # output: [[-211564.05865206 -219445.21022825 -461783.93374972  -16252.73324556 -288195.70441995   34930.7725491
-    # -335369.12969411 -282270.17392149 -25547.54596887 -339794.68286819]]
+    # -335369.12969411 -282270.17392149 -25547.54596887 -339794.68286819]] the sixth (#5) is the biggest one.
 
     some_digit_max = np.argmax(some_digit_scores)
     # print(some_digit_max)  # output: 5  The max score's index is 5.
@@ -409,12 +409,14 @@ if __name__ == '__main__':
     save_fig("3_5_error_analysis_digits_plot")
     # plt.show()
 
-    # multi-label classification
+    # multi-label classification:
+    # a train data matches more than 1 label. like # 5 is < 7 and odd, so it label as [false, true]
 
     # make multi-label train target data set
-    y_train_large = (y_train >= 7)
-    y_train_odd = (y_train % 2 == 1)
+    y_train_large = (y_train >= 7)  # all numbers >= 7; y_train_larger: [true, false, true, true], true if the #>=7 in X
+    y_train_odd = (y_train % 2 == 1)  # all odd numbers;
     y_multi_label = np.c_[y_train_large, y_train_odd]  # join the left np matrix to the right np matrix
+    # y_multi_label: [[true, false, true,...], [false, false, true, ...]] two labels joined. so the predicted as below.
 
     knn_clf = KNeighborsClassifier()  # define a multi-label classifier
     knn_clf_FIT = knn_clf.fit(X_train, y_multi_label)  # train this classifier with multi-target data set
@@ -434,7 +436,7 @@ if __name__ == '__main__':
     # average=macro, f1=unweighted mean; average=weighted, f1=weighted mean, maybe not between precision and recall
     # print(multi_label_f1)  # output: 0.97709078477525002
 
-    # multi-output classification
+    # multi-output classification: the label is not true or false, but it's like a value in (0, 255) to a point's grey.
 
     # make train data set with noise
     noise = np.random.randint(0, 100, (len(X_train), 784))  # low=0, high=100, size=(len(X_train), 784)
