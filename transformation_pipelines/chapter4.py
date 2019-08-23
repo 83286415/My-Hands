@@ -55,7 +55,11 @@ if __name__ == '__main__':
     X_b = np.c_[np.ones((100, 1)), X]  # add x0 = 1 to each instance for theta 0;   ones: a 100 row 1 column of 1 array
     # np.ones((2, 1)) output: array([[1.], [1.]]);
     # X_b = [[1, x0], [1, x1], [1, x2] ... [1, x99]]T
-    theta_best = np.linalg.inv(X_b.T.dot(X_b)).dot(X_b.T).dot(y)  # .T: T transform
+
+    theta_best = np.linalg.inv(X_b.T.dot(X_b)).dot(X_b.T).dot(y)  # theta formula refer to cloud note: normal equation
+    # np.lialg: numpy's Linear Algebra
+    # inv: inverse matrix
+    # .T: T transform
     # X_b.T.dot(X_b) == dot.(X_b.T, X_b);  dot: dot product. eg. a·b=a1b1+a2b2+……+anbn
     # theta_best = inv(X_b.T·X_b)·X_b.T·y  # normal equation
     # print(theta_best)  # output: [[4.21509616], [2.77011339]]. actually it's lin_reg.intercept_, lin_reg.coef_
@@ -78,23 +82,30 @@ if __name__ == '__main__':
     # the process of computing best theta and make prediction could be replaced by lin_reg as below:
     lin_reg = LinearRegression()
     lin_reg.fit(X, y)  # no need to add ones array to X array
-    # print(lin_reg.intercept_, lin_reg.coef_)  # output: [4.21509616] [[2.77011339]]  coef_ refer to chapter2
-    y_predict = lin_reg.predict(X=X_new)
+    print(lin_reg.intercept_, lin_reg.coef_)  # output: [4.21509616] [[2.77011339]]  coef_ refer to chapter2 and below:
+    # y = ax + b : intercept_ is b and coef_ is a as well as the theta.
+    # y = 3x + 4 according to the output of lig_reg and now this result is also almost the same as y's formula at data
+    # prepare line 44: y = 4 + 3 * X + np.random.randn(100, 1)
+
+    y_predict = lin_reg.predict(X_new)
     # print(y_predict)  # output: [[4.21509616] [9.75532293]]  the same result as above y_predict
 
-    theta_best_svd, residuals, rank, s = np.linalg.lstsq(X_b, y, rcond=1e-6)  # note: X_b input, not X
+    # other methods to get theta:
+    theta_best_svd, residuals, rank, s = np.linalg.lstsq(X_b, y, rcond=1e-6)  # lstsq: refer to cloud  normal equation
+    # note: X_b input, not X
     # theta_best_svd: lin_reg.intercept_, lin_reg.coef_. the meaning of these refers to chapter2
     # residuals:
     # rank: rank of X_b matrix input
-    # s:
+    # s: Singular values of `a`
     # value less than rcond will be 0;
     # print(theta_best_svd, residuals, rank, s)
     # output: [[4.21509616] [2.77011339]],  [80.6584564],  2,  [14.37020392  4.11961067]
 
     theta_best_svd = np.linalg.pinv(X_b).dot(y)  # pinv(X_b) == inv(X_b.T.dot(X_b)).dot(X_b.T)
-    # print(theta_best_svd)  # output: [[4.21509616] [2.77011339]]
+    print(theta_best_svd)  # output: [[4.21509616] [2.77011339]]
 
     # Batch Gradient Descent
+
     eta = 0.1  # learning rate η
     n_iterations = 1000
     m = 100
