@@ -7,7 +7,6 @@ import os
 import matplotlib
 import matplotlib.pyplot as plt
 import warnings
-from sklearn.linear_model import LinearRegression
 
 
 # to make this notebook's output stable across runs
@@ -88,6 +87,8 @@ if __name__ == '__main__':
     # X_b.T.dot(X_b) == dot.(X_b.T, X_b);  dot: dot product. eg. a·b=a1b1+a2b2+……+anbn
     # theta_best = inv(X_b.T·X_b)·X_b.T·y  # normal equation
     # print(theta_best)  # output: [[4.21509616], [2.77011339]]. actually it's lin_reg.intercept_, lin_reg.coef_
+    # best theta: coef_ that is the coefficients of the x in this normal equation
+    # intercept: that independent item without x in the equation.
 
     # make predict with best theta
     X_new = np.array([[0], [2]])
