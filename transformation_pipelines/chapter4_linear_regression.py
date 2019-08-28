@@ -7,7 +7,7 @@ import os
 import matplotlib
 import matplotlib.pyplot as plt
 import warnings
-
+from sklearn.linear_model import LinearRegression
 
 # to make this notebook's output stable across runs
 np.random.seed(42)
