@@ -10,6 +10,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import SGDRegressor
 from sklearn.linear_model import Ridge
+from sklearn.linear_model import Lasso
+from sklearn.linear_model import ElasticNet
 
 
 # Where to save the figures
@@ -47,7 +49,7 @@ def plot_model(model_class, polynomial, alphas, **model_kargs):
 
 if __name__ == '__main__':
 
-    # ridge regression
+    # Ridge Regression
 
     np.random.seed(42)
     m = 20
@@ -77,7 +79,7 @@ if __name__ == '__main__':
     sgd_reg = SGDRegressor(max_iter=5, penalty="l2", random_state=42)  # penalty L2 refer to cloud note "L2"
     sgd_reg.fit(X, y.ravel())
     print(sgd_reg.predict([[1.5]]))  # [1.13500145]
-    print('SGDRegressor: ', sgd_reg.intercept_, sgd_reg.coef_)  # [0.35165674] [0.52222981]
+    print('SGD Regressor with L2 penalty: ', sgd_reg.intercept_, sgd_reg.coef_)  # [0.35165674] [0.52222981]
 
     ridge_reg = Ridge(alpha=1, solver="sag", random_state=42)  # Stochastic Average Gradient descent
     #           sag: uses a Stochastic Average Gradient descent, and 'saga' uses
@@ -91,6 +93,36 @@ if __name__ == '__main__':
     print(ridge_reg.predict([[1.5]]))  # [[1.5507201]]
     print('RidgeRegression_sag: ', ridge_reg.intercept_, ridge_reg.coef_)  # [1.00645006] [[0.3628467]]
 
-    # lasso regression
+    # Lasso Regression
+
+    # Compared with Ridge Regression' plot above. Refer to cloud note.
+    plt.figure(figsize=(8, 4))
+    plt.subplot(121)
+    plot_model(Lasso, polynomial=False, alphas=(0, 0.1, 1), random_state=42)
+    plt.ylabel("$y$", rotation=0, fontsize=18)
+    plt.subplot(122)
+    plot_model(Lasso, polynomial=True, alphas=(0, 10 ** -7, 1), tol=1, random_state=42)  # tol: tolerance,refer to Lasso
+
+    save_fig("lasso_regression_plot")
+    plt.show()
+
+    lasso_reg = Lasso(alpha=0.1)  # alpha: regularization intensity
+    lasso_reg.fit(X, y)
+    print('Lasso Regression', lasso_reg.predict([[1.5]]))  # Lasso Regression [1.53788174]
+
+    sgd_reg = SGDRegressor(max_iter=5, penalty="l1", random_state=42)  # penalty L1 refer to cloud note "L1"
+    sgd_reg.fit(X, y.ravel())
+    print(sgd_reg.predict([[1.5]]))  # [1.13498188]
+    print('SGD Regressor with L1 penalty: ', sgd_reg.intercept_, sgd_reg.coef_)  # [0.35166208] [0.5222132]
+
+    # Elastic Net
+    # How to choose Ridge regression, Lasso regression or Elastic Net? refer to cloud note in Elastic Net or book P132.
+
+    # Elastic Net: combine Ridge with Lasso regression with a ratio r in loss.
+    elastic_net = ElasticNet(alpha=0.1, l1_ratio=0.5, random_state=42)  # l1_ratio refer to cloud note: ElasticNet's r.
+    elastic_net.fit(X, y)
+    print('Elastic Net: ', elastic_net.predict([[1.5]]))  # [1.54333232]
+
+    # Early Stopping
 
     #
