@@ -4,6 +4,7 @@ from __future__ import division, print_function, unicode_literals
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.base import clone
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
@@ -12,6 +13,8 @@ from sklearn.linear_model import SGDRegressor
 from sklearn.linear_model import Ridge
 from sklearn.linear_model import Lasso
 from sklearn.linear_model import ElasticNet
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
 
 
 # Where to save the figures
@@ -68,7 +71,7 @@ if __name__ == '__main__':
     plot_model(Ridge, polynomial=True, alphas=(0, 10**-5, 1), random_state=42)
 
     save_fig("ridge_regression_plot")
-    plt.show()
+    # plt.show()
 
     ridge_reg = Ridge(alpha=1, solver="cholesky", random_state=42)
     #           cholesky:  uses the standard scipy.linalg.solve function to obtain a closed-form solution.
@@ -104,7 +107,7 @@ if __name__ == '__main__':
     plot_model(Lasso, polynomial=True, alphas=(0, 10 ** -7, 1), tol=1, random_state=42)  # tol: tolerance,refer to Lasso
 
     save_fig("lasso_regression_plot")
-    plt.show()
+    # plt.show()
 
     lasso_reg = Lasso(alpha=0.1)  # alpha: regularization intensity
     lasso_reg.fit(X, y)
@@ -125,4 +128,81 @@ if __name__ == '__main__':
 
     # Early Stopping
 
-    #
+    np.random.seed(42)
+    m = 100  # count of samples
+    X = 6 * np.random.rand(m, 1) - 3  # X in (-3, 3)
+    y = 2 + X + 0.5 * X ** 2 + np.random.randn(m, 1)
+
+    X_train, X_val, y_train, y_val = train_test_split(X[:50], y[:50].ravel(), test_size=0.5, random_state=10)  # half
+
+    poly_scaler = Pipeline([
+        ("poly_features", PolynomialFeatures(degree=90, include_bias=False)),  # high degree polynomial
+        ("std_scaler", StandardScaler()),
+    ])  # PolynomialFeatures + StandardScaler
+
+    # fit, fit_transform, transform refer to cloud note Chapter 2 SKlearn and its pipeline
+    X_train_poly_scaled = poly_scaler.fit_transform(X_train)  # fit and transform on train data set with pipeline
+    X_val_poly_scaled = poly_scaler.transform(X_val)    # transform on validation data set with pipeline
+
+    sgd_reg = SGDRegressor(max_iter=1,
+                           penalty=None,
+                           eta0=0.0005,
+                           warm_start=True,
+                           learning_rate="constant",
+                           random_state=42)  # SDG
+
+    n_epochs = 500
+    train_errors, val_errors = [], []
+    for epoch in range(n_epochs):
+        sgd_reg.fit(X_train_poly_scaled, y_train)
+        y_train_predict = sgd_reg.predict(X_train_poly_scaled)
+        y_val_predict = sgd_reg.predict(X_val_poly_scaled)
+        train_errors.append(mean_squared_error(y_train, y_train_predict))  # MSE
+        val_errors.append(mean_squared_error(y_val, y_val_predict))
+
+    best_epoch = int(np.argmin(val_errors))  # argmin: returns the indices of the minimum values along an axis.
+    best_val_rmse = np.sqrt(val_errors[best_epoch])  # find the lowest RMSE
+
+    plt.figure(figsize=(8, 4))
+    # annotate: add annotation(comments) in the image.
+    plt.annotate('Best model',
+                 xy=(best_epoch, best_val_rmse),
+                 xytext=(best_epoch, best_val_rmse + 1),
+                 ha="center",
+                 arrowprops=dict(facecolor='black', shrink=0.05),
+                 fontsize=16,
+                 )  # https://blog.csdn.net/you_are_my_dream/article/details/53454549
+
+    best_val_rmse -= 0.03  # just to make the graph look better
+    plt.plot([0, n_epochs], [best_val_rmse, best_val_rmse], "k:", linewidth=2)
+    plt.plot(np.sqrt(val_errors), "b-", linewidth=3, label="Validation set")  # RMSE
+    plt.plot(np.sqrt(train_errors), "r--", linewidth=2, label="Training set")
+    plt.legend(loc="upper right", fontsize=14)
+    plt.xlabel("Epoch", fontsize=14)
+    plt.ylabel("RMSE", fontsize=14)
+    save_fig("early_stopping_plot")
+    plt.show()
+
+    # re-define a SGD model to reproduce "Early Stopping"
+    sgd_reg = SGDRegressor(max_iter=1, warm_start=True, penalty=None,
+                           learning_rate="constant", eta0=0.0005, random_state=42)
+    # wart_start: continue mode, not restart fit from the beginning if interrupted
+
+    minimum_val_error = float("inf")  # infinity, float("inf") is the biggest float and float("-inf") is the smallest
+    best_epoch = None
+    best_model = None
+    for epoch in range(1000):
+        sgd_reg.fit(X_train_poly_scaled, y_train)  # continues where it left off for warm_start=True
+        y_val_predict = sgd_reg.predict(X_val_poly_scaled)
+        val_error = mean_squared_error(y_val, y_val_predict)  # MSE
+        if val_error < minimum_val_error:
+            minimum_val_error = val_error
+            best_epoch = epoch
+            best_model = clone(sgd_reg)
+    print('Early Stopping best epoch and model: ', best_epoch, best_model)
+    # best epoch 239
+    # SGDRegressor(alpha=0.0001, average=False, epsilon=0.1, eta0=0.0005,
+    #        fit_intercept=True, l1_ratio=0.15, learning_rate='constant',
+    #        loss='squared_loss', max_iter=1, n_iter=None, penalty=None,
+    #        power_t=0.25, random_state=42, shuffle=True, tol=None, verbose=0,
+    #        warm_start=True)
