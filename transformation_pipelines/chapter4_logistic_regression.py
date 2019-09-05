@@ -51,12 +51,13 @@ if __name__ == '__main__':
     # plt.show()
 
     # Decision Boundaries
+    # plot a image to show classification of iris based only one feature: petal width
 
     # classify three kinds of iris flowers
     iris = datasets.load_iris()
     print(list(iris.keys()))  # ['data', 'target', 'target_names', 'DESCR', 'feature_names']
     print(iris.DESCR)
-    X = iris["data"][:, 3:]  # show petal width
+    X = iris["data"][:, 3:]  # show petal width. X is a petal width list like [[width 1], [width 2], ... ]
     y = (iris["target"] == 2).astype(np.int)  # y is a list with: 1 if Iris-Virginica, else 0
     # target 1: Iris-Setosa     2: Iris-Versicolour     3: Iris-Virginica
 
@@ -73,11 +74,18 @@ if __name__ == '__main__':
     # reshape(row, column) if we don't know the row #, make it -1. So (-1, 1) reshape it into one column and total rows.
     y_proba = log_reg.predict_proba(X_new)  # estimating probabilities.
     # y_proba is a list like [[Not Virginica Proba, Virginica Proba], [], [], ...] and the Proba is in (0, 1)
+    # predict_proba() returns a list of probabilities; predict() returns a prediction result.
+
     decision_boundary = X_new[y_proba[:, 1] >= 0.5][0]  # the first element in X_new list whose proba >=0.5 to target 2
+    print('decision boundary: ', decision_boundary)  # decision boundary:  [1.61561562]
+    print('predict 1.7, 1.5 as: ', log_reg.predict([[1.7], [1.5]]))  # predict 1.7, 1.5 as:  [1 0]
 
     plt.figure(figsize=(10, 4))
-    plt.plot(X[y == 0], y[y == 0], "bs")  # blue box: refer to _axes.py line 1485
-    plt.plot(X[y == 1], y[y == 1], "g^")  # green triangle
+    # plot(x range, y range, pattern and color): x range could be filtered by y's value as below.
+    plt.plot(X[y == 0], y[y == 0], "bs")  # blue box: not target 2. (refer to _axes.py line 1485)
+    plt.plot(X[y == 1], y[y == 1], "g^")  # green triangle: target 2
+
+    # decision boundary: the blue and green probability lines cross at the decision boundary.
     plt.plot([decision_boundary, decision_boundary], [-1, 2], "k:", linewidth=2)  # black vertical dot line
     plt.plot(X_new, y_proba[:, 1], "g-", linewidth=2, label="Iris-Virginica")
     plt.plot(X_new, y_proba[:, 0], "b--", linewidth=2, label="Not Iris-Virginica")
@@ -89,4 +97,52 @@ if __name__ == '__main__':
     plt.legend(loc="center left", fontsize=14)
     plt.axis([0, 3, -0.02, 1.02])
     save_fig("logistic_regression_plot")
+    # plt.show()
+
+    # Decision Boundaries
+    # plot a image to show classification of iris based on two features: petal length and petal width
+
+    # train data set with two features
+    X = iris["data"][:, (2, 3)]  # petal length, petal width. X is a list like [[length, width], [], [], ...]
+    y = (iris["target"] == 2).astype(np.int)  # y is a list with: 1 if Iris-Virginica, else 0
+
+    # re-define a logistic regression model with L2 regularization intense C.
+    log_reg = LogisticRegression(C=10 ** 10, random_state=42)  # different with the former log_reg
+    # C: Inverse of regularization strength; smaller values specify stronger regularization.
+    # So, the regularization intense of logistic model is not the alpha but C, and C is alpha's inverse.
+    log_reg.fit(X, y)
+
+    x0, x1 = np.meshgrid(
+        np.linspace(2.9, 7, 500).reshape(-1, 1),
+        np.linspace(0.8, 2.7, 200).reshape(-1, 1),
+    )  # meshgrid: https://www.jb51.net/article/166710.htm  easy to generate grid matrix
+    X_new = np.c_[x0.ravel(), x1.ravel()]  # ravel(): flatten a array
+
+    y_proba = log_reg.predict_proba(X_new)
+
+    plt.figure(figsize=(10, 4))
+    plt.plot(X[y == 0, 0], X[y == 0, 1], "bs")
+    plt.plot(X[y == 1, 0], X[y == 1, 1], "g^")
+
+    zz = y_proba[:, 1].reshape(x0.shape)
+    contour = plt.contour(x0, x1, zz, cmap=plt.cm.brg)  # contour: https://www.jianshu.com/p/487b211d3c37?from=timeline
+
+    left_right = np.array([2.9, 7])
+    print('coef_: ', log_reg.coef_)  # coef_:  [[ 5.7528683  10.44455633]] two features' coefficient
+    print('intercept_: ', log_reg.intercept_)  # intercept_:  [-45.26062435] bias
+    boundary = -(log_reg.coef_[0][0] * left_right + log_reg.intercept_[0]) / log_reg.coef_[0][1]
+    # boundary = -(coef1*x + bias)/coef2
+
+    plt.clabel(contour, inline=1, fontsize=12)
+    plt.plot(left_right, boundary, "k--", linewidth=3)
+    plt.text(3.5, 1.5, "Not Iris-Virginica", fontsize=14, color="b", ha="center")
+    plt.text(6.5, 2.3, "Iris-Virginica", fontsize=14, color="g", ha="center")
+    plt.xlabel("Petal length", fontsize=14)
+    plt.ylabel("Petal width", fontsize=14)
+    plt.axis([2.9, 7, 0.8, 2.7])
+    save_fig("logistic_regression_contour_plot")
     plt.show()
+
+    # Soft-max Regression
+
+    #
