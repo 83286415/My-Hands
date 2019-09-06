@@ -4,6 +4,7 @@ from __future__ import division, print_function, unicode_literals
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 from sklearn import datasets
 from sklearn.linear_model import LogisticRegression
 
@@ -141,8 +142,50 @@ if __name__ == '__main__':
     plt.ylabel("Petal width", fontsize=14)
     plt.axis([2.9, 7, 0.8, 2.7])
     save_fig("logistic_regression_contour_plot")
-    plt.show()
+    # plt.show()
 
     # Soft-max Regression
 
-    #
+    # Re-define X and y
+    X = iris["data"][:, (2, 3)]  # petal length, petal width
+    y = iris["target"]  # y is not only target==2 any more. It's a multi-classification labels set, so all targets in it
+
+    # define a soft max model with logistic model class
+    # multi_class: multi classification     solver: refer to model's doc
+    softmax_reg = LogisticRegression(multi_class="multinomial", solver="lbfgs", C=10, random_state=42)
+    softmax_reg.fit(X, y)
+
+    # make test data X_new
+    x0, x1 = np.meshgrid(
+        np.linspace(0, 8, 500).reshape(-1, 1),
+        np.linspace(0, 3.5, 200).reshape(-1, 1),
+    )
+    X_new = np.c_[x0.ravel(), x1.ravel()]
+
+    y_proba = softmax_reg.predict_proba(X_new)
+    # return all samples' probabilities list like [[target 1 proba, target 2 proba, target 3 proba], [], [], ...]
+    y_predict = softmax_reg.predict(X_new)  # return the prediction result list like [0, 1, 1, 2, 2, 1, 0, ...]
+
+    zz1 = y_proba[:, 1].reshape(x0.shape)  # all samples' target 2 probabilities are reshaped into a 1 column array
+    zz = y_predict.reshape(x0.shape)
+
+    plt.figure(figsize=(10, 4))
+
+    # plot markers
+    plt.plot(X[y == 2, 0], X[y == 2, 1], "g^", label="Iris-Virginica")
+    # (x range: target 2' petal length, y range: target 2's petal width, green triangle)
+    plt.plot(X[y == 1, 0], X[y == 1, 1], "bs", label="Iris-Versicolor")  # blue square
+    plt.plot(X[y == 0, 0], X[y == 0, 1], "yo", label="Iris-Setosa")  # yellow circle
+
+    custom_cmap = ListedColormap(['#fafab0', '#9898ff', '#a0faa0'])  # get colors: refer to cloud note: matplotlib
+    # https://blog.csdn.net/zhaogeng111/article/details/78419015
+
+    plt.contourf(x0, x1, zz, cmap=custom_cmap)  # color the contour field
+    contour = plt.contour(x0, x1, zz1, cmap=plt.cm.brg)  # plot contour line
+    plt.clabel(contour, inline=1, fontsize=12)
+    plt.xlabel("Petal length", fontsize=14)
+    plt.ylabel("Petal width", fontsize=14)
+    plt.legend(loc="center left", fontsize=14)
+    plt.axis([0, 7, 0, 3.5])
+    save_fig("softmax_regression_contour_plot")
+    plt.show()
