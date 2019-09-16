@@ -180,7 +180,7 @@ if __name__ == '__main__':
     custom_cmap = ListedColormap(['#fafab0', '#9898ff', '#a0faa0'])  # get colors: refer to cloud note: matplotlib
     # https://blog.csdn.net/zhaogeng111/article/details/78419015
 
-    plt.contourf(x0, x1, zz, cmap=custom_cmap)  # color the contour field
+    plt.contourf(x0, x1, zz, cmap=custom_cmap)  # plot and color the contour field
     contour = plt.contour(x0, x1, zz1, cmap=plt.cm.brg)  # plot contour line
     plt.clabel(contour, inline=1, fontsize=12)
     plt.xlabel("Petal length", fontsize=14)
