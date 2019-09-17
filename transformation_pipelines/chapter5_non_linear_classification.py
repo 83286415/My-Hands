@@ -79,7 +79,11 @@ def plot_predictions(clf, axes):
     y_decision = clf.decision_function(X).reshape(x0.shape)  # decision_function: return a score of distance to street
     plt.contourf(x0, x1, y_pred, cmap=plt.cm.brg, alpha=0.2)  # plot the hyperplane: the center line of the street
     plt.contourf(x0, x1, y_decision, cmap=plt.cm.brg, alpha=0.1)  # plot and color the contour field
-    # draw contour lines and color contours
+    # draw contour lines and color contours field
+
+
+def gaussian_rbf(x, landmark, gamma):
+    return np.exp(-gamma * np.linalg.norm(x - landmark, axis=1)**2)  # refer to book P151 and cloud note - math concept
 
 
 if __name__ == '__main__':
@@ -151,8 +155,89 @@ if __name__ == '__main__':
     plt.title(r"$d=10, r=100, C=5$", fontsize=18)
 
     save_fig("moons_kernelized_polynomial_svc_plot")
-    plt.show()
+    # plt.show()
 
     # Adding Similarity Features
 
-    #
+    # only X1D cannot be classified by linear model but X2D can
+    X1D = np.linspace(-4, 4, 9).reshape(-1, 1)  # reshape(-1, 1): only column count is decided to be 1
+    X2D = np.c_[X1D, X1D ** 2]
+    '''X2D:
+        [[-4. 16.]
+         [-3.  9.]
+         [-2.  4.]
+         [-1.  1.]
+         [ 0.  0.]
+         [ 1.  1.]
+         [ 2.  4.]
+         [ 3.  9.]
+         [ 4. 16.]]
+    '''
+    gamma = 0.3  # used in RBF
+
+    # used in left image: add new features to x1s and make it into x2s, x3s, two new data sets
+    x1s = np.linspace(-4.5, 4.5, 200).reshape(-1, 1)  # used to plot dot line
+    x2s = gaussian_rbf(x1s, -2, gamma)  # landmark = -2     # for green - - line
+    x3s = gaussian_rbf(x1s, 1, gamma)                       # for blue ... line
+
+    # used in right image: add two new similar features to X1D by rbf
+    XK = np.c_[gaussian_rbf(X1D, -2, gamma), gaussian_rbf(X1D, 1, gamma)]  # join two rbf array with landmarks -2, 1
+    yk = np.array([0, 0, 1, 1, 1, 1, 1, 0, 0])
+
+    plt.figure(figsize=(11, 4))
+
+    plt.subplot(121)
+    plt.grid(True, which='both')  # plot with grid
+    plt.axhline(y=0, color='k')  # Add a horizontal line across the axis. # k: black
+    plt.scatter(x=[-2, 1], y=[0, 0], s=150, alpha=0.5, c="red")  # plot the red circle on those two points
+    plt.plot(X1D[:, 0][yk == 0], np.zeros(4), "bs")  # plot blue square box on points along x axis
+    plt.plot(X1D[:, 0][yk == 1], np.zeros(5), "g^")  # plot green triangle
+    plt.plot(x1s, x2s, "g--")  # plot gaussian rbf line which is like a hill
+    plt.plot(x1s, x3s, "b:")
+    plt.gca().get_yaxis().set_ticks([0, 0.25, 0.5, 0.75, 1])  # gca(): get the current axis.
+    plt.xlabel(r"$x_1$", fontsize=20)
+    plt.ylabel(r"Similarity", fontsize=14)
+    plt.annotate(r'$\mathbf{x}$',  # add X test into image
+                 xy=(X1D[3, 0], 0),  # the arrow points to [-1, 0] from annotate X
+                 xytext=(-0.5, 0.20),   # test X location
+                 ha="center",
+                 arrowprops=dict(facecolor='black', shrink=0.1),
+                 fontsize=18,
+                 )
+    plt.text(-2, 0.9, "$x_2$", ha="center", fontsize=20)  # add X2 text
+    plt.text(1, 0.9, "$x_3$", ha="center", fontsize=20)
+    plt.axis([-4.5, 4.5, -0.1, 1.1])
+
+    plt.subplot(122)
+    plt.grid(True, which='both')
+    plt.axhline(y=0, color='k')
+    plt.axvline(x=0, color='k')  # Add a vertical line across the axis x==0. # k: black
+
+    '''XK:
+    [[3.01194212e-01 5.53084370e-04]
+     [7.40818221e-01 8.22974705e-03]
+     [1.00000000e+00 6.72055127e-02]
+     [7.40818221e-01 3.01194212e-01]
+     [3.01194212e-01 7.40818221e-01]
+     [6.72055127e-02 1.00000000e+00]
+     [8.22974705e-03 7.40818221e-01]
+     [5.53084370e-04 3.01194212e-01]
+     [2.03995034e-05 6.72055127e-02]]'''
+    plt.plot(XK[:, 0][yk == 0], XK[:, 1][yk == 0], "bs")
+    plt.plot(XK[:, 0][yk == 1], XK[:, 1][yk == 1], "g^")
+    plt.xlabel(r"$x_2$", fontsize=20)
+    plt.ylabel(r"$x_3$  ", fontsize=20, rotation=0)
+    plt.annotate(r'$\phi\left(\mathbf{x}\right)$',
+                 xy=(XK[3, 0], XK[3, 1]),
+                 xytext=(0.65, 0.50),
+                 ha="center",
+                 arrowprops=dict(facecolor='black', shrink=0.1),
+                 fontsize=18,
+                 )
+    plt.plot([-0.1, 1.1], [0.57, -0.1], "r--", linewidth=3)
+    plt.axis([-0.1, 1.1, -0.1, 1.1])
+
+    plt.subplots_adjust(right=0.2)  # adjust the distance between subplots
+
+    save_fig("kernel_method_plot")
+    plt.show()
