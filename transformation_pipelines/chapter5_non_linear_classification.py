@@ -14,7 +14,7 @@ from sklearn.svm import SVC
 from sklearn.svm import LinearSVC
 '''
     LinearSVC: 
-    Linear Support Vector Classification.
+    Linear Support Vector Classification(SVC).
     Similar to SVC with parameter kernel='linear', but implemented in terms of
     liblinear rather than libsvm, so it has more flexibility in the choice of
     penalties and loss functions and should scale better to large numbers of
