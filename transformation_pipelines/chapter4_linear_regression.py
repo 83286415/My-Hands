@@ -4,7 +4,6 @@ from __future__ import division, print_function, unicode_literals
 # Common imports
 import numpy as np
 import os
-import matplotlib
 import matplotlib.pyplot as plt
 import warnings
 from sklearn.linear_model import LinearRegression
