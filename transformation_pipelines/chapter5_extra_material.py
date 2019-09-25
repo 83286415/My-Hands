@@ -7,9 +7,6 @@ import numpy as np
 import os
 
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.pipeline import Pipeline
 from sklearn import datasets
 from sklearn.datasets import make_moons
 from sklearn.svm import SVC
@@ -126,7 +123,7 @@ if __name__ == '__main__':
     plot_dataset(X, y, [-2.5, 4, -2, 3])
     # plt.show()
 
-    #
+    # plot training time
     tol = 0.1  # the bias tolerance to stop training
     tols = []
     times = []  # training time list
