@@ -38,15 +38,16 @@ def image_path(fig_id):
 
 
 def plot_decision_boundary(clf, X, y, axes=[0, 7.5, 0, 3], iris=True, legend=False, plot_training=True):
+    # mutable parameters warning: https://blog.csdn.net/tcx1992/article/details/81312446
     x1s = np.linspace(axes[0], axes[1], 100)
     x2s = np.linspace(axes[2], axes[3], 100)
     x1, x2 = np.meshgrid(x1s, x2s)
     X_new = np.c_[x1.ravel(), x2.ravel()]
     y_pred = clf.predict(X_new).reshape(x1.shape)
-    custom_cmap = ListedColormap(['#fafab0','#9898ff','#a0faa0'])
+    custom_cmap = ListedColormap(['#fafab0', '#9898ff', '#a0faa0'])
     plt.contourf(x1, x2, y_pred, alpha=0.3, cmap=custom_cmap)
     if not iris:
-        custom_cmap2 = ListedColormap(['#7d7d58','#4c4c7f','#507d50'])
+        custom_cmap2 = ListedColormap(['#7d7d58', '#4c4c7f', '#507d50'])
         plt.contour(x1, x2, y_pred, cmap=custom_cmap2, alpha=0.8)
     if plot_training:
         plt.plot(X[:, 0][y==0], X[:, 1][y==0], "yo", label="Iris-Setosa")
@@ -65,7 +66,7 @@ def plot_decision_boundary(clf, X, y, axes=[0, 7.5, 0, 3], iris=True, legend=Fal
 
 if __name__ == '__main__':
 
-    # Training and Visualizing
+    # Training, Visualizing and Making Predictions
 
     # data set
     iris = load_iris()
@@ -107,3 +108,17 @@ if __name__ == '__main__':
 
     save_fig("decision_tree_decision_boundaries_plot")
     plt.show()
+
+    # Estimating Class Probabilities
+
+    # make prediction and probability
+    one_sample_predicted_proba = tree_clf.predict_proba([[5, 1.5]])
+    one_sample_predicted = tree_clf.predict([[5, 1.5]])
+    print('The probability of one sample with 5cm petal length and 1.5cm petal width: ', one_sample_predicted_proba)
+    # [[0.         0.90740741 0.09259259]]
+    print('The prediction of one sample with 5cm petal length and 1.5cm petal width: ', one_sample_predicted)  # [1]
+
+    # CART Training Algorithm
+
+    #
+
