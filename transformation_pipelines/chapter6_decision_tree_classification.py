@@ -9,6 +9,7 @@ import os
 from sklearn.datasets import load_iris
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.tree import export_graphviz
+from sklearn.datasets import make_moons
 
 # To plot pretty figures
 import matplotlib
@@ -107,7 +108,7 @@ if __name__ == '__main__':
     plt.text(4.05, 0.5, "(Depth=2)", fontsize=11)
 
     save_fig("decision_tree_decision_boundaries_plot")
-    plt.show()
+    # plt.show()
 
     # Estimating Class Probabilities
 
@@ -118,7 +119,50 @@ if __name__ == '__main__':
     # [[0.         0.90740741 0.09259259]]
     print('The prediction of one sample with 5cm petal length and 1.5cm petal width: ', one_sample_predicted)  # [1]
 
-    # CART Training Algorithm
+    # Sensitivity to training set details
 
-    #
+    # moon data
+    Xm, ym = make_moons(n_samples=100, noise=0.25, random_state=53)
 
+    # build model
+    deep_tree_clf1 = DecisionTreeClassifier(random_state=42)
+    deep_tree_clf2 = DecisionTreeClassifier(min_samples_leaf=4, random_state=42)  # add restriction
+    deep_tree_clf1.fit(Xm, ym)
+    deep_tree_clf2.fit(Xm, ym)
+
+    # plot
+    plt.figure(figsize=(11, 4))
+    plt.subplot(121)
+    plot_decision_boundary(deep_tree_clf1, Xm, ym, axes=[-1.5, 2.5, -1, 1.5], iris=False)
+    plt.title("No restrictions", fontsize=16)
+    plt.subplot(122)
+    plot_decision_boundary(deep_tree_clf2, Xm, ym, axes=[-1.5, 2.5, -1, 1.5], iris=False)
+    plt.title("min_samples_leaf = {}".format(deep_tree_clf2.min_samples_leaf), fontsize=14)
+
+    save_fig("min_samples_leaf_plot")
+    # plt.show()
+
+    # Another case
+
+    np.random.seed(6)
+    Xs = np.random.rand(100, 2) - 0.5  # shape: (100, 2), values in [0, 1)-0.5
+    ys = (Xs[:, 0] > 0).astype(np.float32) * 2  # (Xs[:, 0] > 0) returns True or False, if True, True*2 == 2
+
+    angle = np.pi / 4  # pi/4
+    rotation_matrix = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
+    # [[0.70710678 - 0.70710678] [0.70710678  0.70710678]]
+    Xsr = Xs.dot(rotation_matrix)
+
+    tree_clf_s = DecisionTreeClassifier(random_state=42)
+    tree_clf_s.fit(Xs, ys)
+    tree_clf_sr = DecisionTreeClassifier(random_state=42)
+    tree_clf_sr.fit(Xsr, ys)
+
+    plt.figure(figsize=(11, 4))
+    plt.subplot(121)
+    plot_decision_boundary(tree_clf_s, Xs, ys, axes=[-0.7, 0.7, -0.7, 0.7], iris=False)
+    plt.subplot(122)
+    plot_decision_boundary(tree_clf_sr, Xsr, ys, axes=[-0.7, 0.7, -0.7, 0.7], iris=False)
+
+    save_fig("sensitivity_to_rotation_plot")
+    plt.show()
