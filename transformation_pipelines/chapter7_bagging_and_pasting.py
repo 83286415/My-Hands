@@ -106,3 +106,12 @@ if __name__ == '__main__':
     plt.title("Decision Trees with Pasting", fontsize=14)
     save_fig("decision_tree_without_and_with_bagging_and_pasting_plot")
     plt.show()
+
+    # Out of Bagging Evaluating
+
+    # build a new Bagging model with oob (out of bagging)
+    bag_oob_clf = BaggingClassifier(
+                                    DecisionTreeClassifier(random_state=42), n_estimators=500,
+                                    bootstrap=True, n_jobs=-1, oob_score=True, random_state=40)
+    bag_oob_clf.fit(X_train, y_train)
+    print(bag_oob_clf.oob_score_)  # 0.9013333333333333
