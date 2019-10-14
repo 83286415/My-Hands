@@ -17,6 +17,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.tree import export_graphviz
 from sklearn.datasets import make_moons
 from sklearn.tree import DecisionTreeRegressor
+from sklearn.datasets import fetch_mldata
 
 # To plot pretty figures
 import matplotlib
@@ -74,6 +75,13 @@ def plot_decision_boundary(clf, X, y, axes=[-1.5, 2.5, -1, 1.5], alpha=0.5, cont
     plt.ylabel(r"$x_2$", fontsize=18, rotation=0)
 
 
+def plot_digit(data):
+    image = data.reshape(28, 28)  # reshape (70000, 784) into (28, 28)
+    plt.imshow(image, cmap=matplotlib.cm.hot, interpolation="nearest")  # cmap: color map;
+    # interpolation: refer to cloud note matplotlib
+    plt.axis("off")  # no axis
+
+
 if __name__ == '__main__':
 
     # Random Forests and Bagging model
@@ -116,20 +124,31 @@ if __name__ == '__main__':
 
     # Feature Importance
 
+    # load data and build model
     iris = load_iris()
     rnd_clf = RandomForestClassifier(n_estimators=500, n_jobs=-1, random_state=42)
     rnd_clf.fit(iris["data"], iris["target"])
+
+    # show the importance scores list by calling clf.feature_importances_
     for name, score in zip(iris["feature_names"], rnd_clf.feature_importances_):
         print(name, score)
-    print(rnd_clf.feature_importances_)
+        '''
+            sepal length (cm) 0.11249225099876374
+            sepal width (cm) 0.023119288282510326
+            petal length (cm) 0.44103046436395765
+            petal width (cm) 0.4233579963547681
+        '''
+    print(rnd_clf.feature_importances_)  # [0.11249225 0.02311929 0.44103046 0.423358  ] importance scores list
 
     # plot
-    plt.figure(figsize=(6, 4))
+    mnist = fetch_mldata('MNIST original')
+    rnd_clf = RandomForestClassifier(random_state=42)
+    rnd_clf.fit(mnist["data"], mnist["target"])
 
-    for i in range(15):
-        tree_clf = DecisionTreeClassifier(max_leaf_nodes=16, random_state=42 + i)
-        indices_with_replacement = np.random.randint(0, len(X_train), len(X_train))
-        tree_clf.fit(X[indices_with_replacement], y[indices_with_replacement])
-        plot_decision_boundary(tree_clf, X, y, axes=[-1.5, 2.5, -1, 1.5], alpha=0.02, contour=False)
+    plot_digit(rnd_clf.feature_importances_)
+    cbar = plt.colorbar(ticks=[rnd_clf.feature_importances_.min(), rnd_clf.feature_importances_.max()])
+    # ticks: refer to C:\Users\zhang.d\AppData\Local\Programs\Python\Python36\Lib\site-packages\matplotlib\colorbar.py
+    cbar.ax.set_yticklabels(['Not important', 'Very important'])
 
+    save_fig("mnist_feature_importance_plot")
     plt.show()
