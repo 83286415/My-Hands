@@ -85,6 +85,7 @@ if __name__ == '__main__':
             min_weight_fraction_leaf=0.0, presort=False, random_state=42,
             splitter='best')
     '''
+    print(tree_clf.feature_importances_)
 
     # export_graphviz: to generate a dot file to visualize the decision tree model trained
     export_graphviz(
