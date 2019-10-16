@@ -20,6 +20,7 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.datasets import fetch_mldata
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.svm import SVC
+from sklearn.ensemble import GradientBoostingRegressor
 
 # To plot pretty figures
 import matplotlib
@@ -82,6 +83,16 @@ def plot_digit(data):
     plt.imshow(image, cmap=matplotlib.cm.hot, interpolation="nearest")  # cmap: color map;
     # interpolation: refer to cloud note matplotlib
     plt.axis("off")  # no axis
+
+
+def plot_predictions(regressors, X, y, axes, label=None, style="r-", data_style="b.", data_label=None):
+    x1 = np.linspace(axes[0], axes[1], 500)  # red line's x
+    y_pred = sum(regressor.predict(x1.reshape(-1, 1)) for regressor in regressors)
+    plt.plot(X[:, 0], y, data_style, label=data_label)
+    plt.plot(x1, y_pred, style, linewidth=2, label=label)
+    if label or data_label:
+        plt.legend(loc="upper center", fontsize=16)
+    plt.axis(axes)
 
 
 if __name__ == '__main__':
@@ -149,6 +160,114 @@ if __name__ == '__main__':
             plt.text(-0.4, 0.55, "4", fontsize=14)
             plt.text(-0.3, 0.90, "5", fontsize=14)
 
+    # plt.show()
+
+    # Gradient Boosting Regression Trees - GBRT: a regression model
+
+    # data set
+    np.random.seed(42)
+    X = np.random.rand(100, 1) - 0.5  # X: [[-0.12545988], [ 0.45071431], [ 0.23199394], ...]
+    y = 3 * X[:, 0] ** 2 + 0.05 * np.random.randn(100)
+
+    # build gbrt model
+    gbrt = GradientBoostingRegressor(max_depth=2, n_estimators=3, learning_rate=1.0, random_state=42)
+    '''
+    GradientBoostingRegressor(alpha=0.9, criterion='friedman_mse', init=None,
+             learning_rate=1.0, loss='ls', max_depth=2, max_features=None,
+             max_leaf_nodes=None, min_impurity_decrease=0.0,
+             min_impurity_split=None, min_samples_leaf=1,
+             min_samples_split=2, min_weight_fraction_leaf=0.0,
+             n_estimators=3, presort='auto', random_state=42,
+             subsample=1.0, verbose=0, warm_start=False)
+    '''
+    gbrt.fit(X, y)
+
+    # build a shrinkage GBRT model with more estimators and low learning rate
+    gbrt_slow = GradientBoostingRegressor(max_depth=2, n_estimators=200, learning_rate=0.1, random_state=42)
+    gbrt_slow.fit(X, y)  # more base regressors and lower learning rate
+
+    # plot these two different regressors
+    plt.figure(figsize=(11, 4))
+
+    plt.subplot(121)
+    plot_predictions([gbrt], X, y, axes=[-0.5, 0.5, -0.1, 0.8], label="Ensemble predictions")
+    plt.title("learning_rate={}, n_estimators={}".format(gbrt.learning_rate, gbrt.n_estimators), fontsize=14)
+
+    plt.subplot(122)
+    plot_predictions([gbrt_slow], X, y, axes=[-0.5, 0.5, -0.1, 0.8])
+    plt.title("learning_rate={}, n_estimators={}".format(gbrt_slow.learning_rate, gbrt_slow.n_estimators), fontsize=14)
+
+    save_fig("gbrt_learning_rate_plot")
+    # plt.show()
+
+    # Gradient Boosting with Early stopping
+    # With staged_predict(), find the best parameter and re-build model to fit
+
+    # data set
+    X_train, X_val, y_train, y_val = train_test_split(X, y, random_state=49)
+
+    # build GBRT model
+    gbrt = GradientBoostingRegressor(max_depth=2, n_estimators=120, random_state=42)
+    gbrt.fit(X_train, y_train)
+
+    # find the best estimator
+    errors = [mean_squared_error(y_val, y_pred) for y_pred in gbrt.staged_predict(X_val)]  # len(errors) = 120
+    # staged_predict(X) return a iterator which returns the prediction of each stage.
+    # stage1: estimator1; stage2: estimator 1+2; stage3: estimator 2+3...
+    bst_n_estimators = np.argmin(errors)  # bst_n_estimators = 55; argmin: return the index of the min value in list
+
+    # re-build GBRT model with best estimator number parameter
+    gbrt_best = GradientBoostingRegressor(max_depth=2, n_estimators=bst_n_estimators, random_state=42)
+    '''
+    GradientBoostingRegressor(alpha=0.9, criterion='friedman_mse', init=None,
+             learning_rate=0.1, loss='ls', max_depth=2, max_features=None,
+             max_leaf_nodes=None, min_impurity_decrease=0.0,
+             min_impurity_split=None, min_samples_leaf=1,
+             min_samples_split=2, min_weight_fraction_leaf=0.0,
+             n_estimators=55, presort='auto', random_state=42,
+             subsample=1.0, verbose=0, warm_start=False)
+    '''  # n_estimators=55
+    gbrt_best.fit(X_train, y_train)
+
+    # plot
+    min_error = np.min(errors)  # min_error =  # 0.002712853325235463; min: return the min value in the list
+    plt.figure(figsize=(11, 4))
+
+    plt.subplot(121)
+    plt.plot(errors, "b.-")
+    plt.plot([bst_n_estimators, bst_n_estimators], [0, min_error], "k--")
+    plt.plot([0, 120], [min_error, min_error], "k--")
+    plt.plot(bst_n_estimators, min_error, "ko")
+    plt.text(bst_n_estimators, min_error * 1.2, "Minimum", ha="center", fontsize=14)
+    plt.axis([0, 120, 0, 0.01])
+    plt.xlabel("Number of trees")
+    plt.title("Validation error", fontsize=14)
+
+    plt.subplot(122)
+    plot_predictions([gbrt_best], X, y, axes=[-0.5, 0.5, -0.1, 0.8])
+    plt.title("Best model (%d trees)" % bst_n_estimators, fontsize=14)
+
+    save_fig("early_stopping_gbrt_plot")
     plt.show()
 
-    # Gradient Bootsing
+    # Gradient Boosting with Early stopping
+    # Traditional early stopping with MSE value going up in 5 successive stages
+    gbrt = GradientBoostingRegressor(max_depth=2, warm_start=True, random_state=42)
+    # warm_start: keep the snap of the fitting and allow to specify the n_estimator before the next fitting round
+
+    min_val_error = float("inf")
+    error_going_up = 0
+    for n_estimators in range(1, 120):
+        gbrt.n_estimators = n_estimators  # stopped at n_estimators = 61; So the 61-5-1=55 is the best estimator
+        gbrt.fit(X_train, y_train)
+        y_pred = gbrt.predict(X_val)
+        val_error = mean_squared_error(y_val, y_pred)
+        if val_error < min_val_error:
+            min_val_error = val_error
+            error_going_up = 0
+        else:
+            error_going_up += 1
+            if error_going_up == 5:  # if MSE value going up in 5 successive stages
+                print(gbrt.n_estimators)  # 61 and 61-5-1=55 is the best n_estimator
+                print("Minimum validation MSE:", min_val_error)  # 0.002712853325235463 is the same as the model above
+                break  # early stopping
