@@ -271,3 +271,28 @@ if __name__ == '__main__':
                 print(gbrt.n_estimators)  # 61 and 61-5-1=55 is the best n_estimator
                 print("Minimum validation MSE:", min_val_error)  # 0.002712853325235463 is the same as the model above
                 break  # early stopping
+
+    # XGBoost
+    # not shown in the book
+
+    if False:  # cannot run this code for dll file problem.
+        try:
+            import xgboost
+            print('importing XGBoost')
+        except ImportError as ex:
+            print("Error: the xgboost library is not installed.")
+            xgboost = None
+
+        if xgboost is not None:
+            xgb_reg = xgboost.XGBRegressor(random_state=42)
+            xgb_reg.fit(X_train, y_train)
+            y_pred = xgb_reg.predict(X_val)
+            val_error = mean_squared_error(y_val, y_pred)
+            print("Validation MSE:", val_error)
+
+        if xgboost is not None:  # not shown in the book
+            xgb_reg.fit(X_train, y_train,
+                        eval_set=[(X_val, y_val)], early_stopping_rounds=2)
+            y_pred = xgb_reg.predict(X_val)
+            val_error = mean_squared_error(y_val, y_pred)
+            print("Validation MSE:", val_error)
