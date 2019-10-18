@@ -59,6 +59,7 @@ def plot_decision_boundary(clf, X, y, axes=[-1.5, 2.5, -1, 1.5], alpha=0.5, cont
 if __name__ == '__main__':
 
     # Bagging ensembles
+    # DES prediction result is much better than bagging and pasting. Refer to boosting py
 
     # moon data set
     X, y = make_moons(n_samples=500, noise=0.30, random_state=42)

@@ -21,6 +21,7 @@ from sklearn.datasets import fetch_mldata
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.svm import SVC
 from sklearn.ensemble import GradientBoostingRegressor
+from deslib.des.knora_e import KNORAE
 
 # To plot pretty figures
 import matplotlib
@@ -296,3 +297,25 @@ if __name__ == '__main__':
             y_pred = xgb_reg.predict(X_val)
             val_error = mean_squared_error(y_val, y_pred)
             print("Validation MSE:", val_error)
+
+    # Stacking
+
+    # data set
+    X, y = make_moons(n_samples=500, noise=0.30, random_state=42)
+    X_train, X_dsel, y_train, y_dsel = train_test_split(X, y, test_size=0.5, random_state=42)
+
+    # Train a pool of 10 classifiers
+    pool_classifiers = RandomForestClassifier(n_estimators=10)
+    pool_classifiers.fit(X_train, y_train)
+
+    # Initialize the DES model
+    knorae = KNORAE(pool_classifiers)
+
+    # Preprocess the Dynamic Selection dataset (DSEL)
+    knorae.fit(X_dsel, y_dsel)
+
+    # Predict new examples:
+    y_pred_des = knorae.predict(X_test)
+
+    print('des accuracy score: ', accuracy_score(y_test, y_pred_des))  # 0.984 much better than bagging and pasting
+    print('des RMSE: ', np.sqrt(mean_squared_error(y_test, y_pred_des)))  # 0.12649110640673517
