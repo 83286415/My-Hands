@@ -1,5 +1,3 @@
-#  encoding=utf-8
-
 import numpy as np
 from sklearn import datasets
 from sklearn.cluster import DBSCAN
