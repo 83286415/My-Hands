@@ -24,6 +24,7 @@ from sklearn.svm import SVC
 from sklearn.ensemble import GradientBoostingRegressor
 from deslib.des.knora_e import KNORAE
 from sklearn.decomposition import PCA
+from six.moves import urllib
 
 # To plot pretty figures
 import matplotlib
@@ -50,6 +51,22 @@ def save_fig(fig_id, tight_layout=True):
 
 def image_path(fig_id):
     return os.path.join(ROOT_PATH, "images", CHAPTER_ID, fig_id)
+
+
+def plot_digits(instances, images_per_row=5, **options):
+    size = 28
+    images_per_row = min(len(instances), images_per_row)
+    images = [instance.reshape(size,size) for instance in instances]
+    n_rows = (len(instances) - 1) // images_per_row + 1
+    row_images = []
+    n_empty = n_rows * images_per_row - len(instances)
+    images.append(np.zeros((size, size * n_empty)))
+    for row in range(n_rows):
+        rimages = images[row * images_per_row : (row + 1) * images_per_row]
+        row_images.append(np.concatenate(rimages, axis=1))
+    image = np.concatenate(row_images, axis=0)
+    plt.imshow(image, cmap=matplotlib.cm.binary, **options)
+    plt.axis("off")
 
 
 if __name__ == '__main__':
@@ -141,3 +158,36 @@ if __name__ == '__main__':
 
     # PCA Compression
     # MNIST compression
+
+    # load data set
+    mnist = fetch_mldata('MNIST original')
+    X = mnist["data"]
+    y = mnist["target"]
+    X_train, X_test, y_train, y_test = train_test_split(X, y)
+
+    # PCA compression
+    pca = PCA(n_components=0.95)
+    pca.fit(X_train)
+    cumsum = np.cumsum(pca.explained_variance_ratio_)  # cumsum: the sum of the explained variance ratio of first axises
+    d = np.argmax(cumsum >= 0.95) + 1  # +1: because the index starts from 0
+    print(d)  # 154: only 154 dimensions are kept from 28*28 dimensions in original data
+    print(pca.components_)  # a 154 features list: 154 features are kept, others are abandoned.
+    print(np.sum(pca.explained_variance_ratio_))  # 0.9504463030200186
+
+    # PCA Inverse transform
+    pca = PCA(n_components=154)
+    X_reduced = pca.fit_transform(X_train)
+    X_recovered = pca.inverse_transform(X_reduced)
+
+    # plot
+    plt.figure(figsize=(7, 4))
+    plt.subplot(121)
+    plot_digits(X_train[::2100])  # pick one number's image from all images with the step: 2100 images
+    plt.title("Original", fontsize=16)
+    plt.subplot(122)
+    plot_digits(X_recovered[::2100])
+    plt.title("Compressed", fontsize=16)
+
+    save_fig("mnist_compression_plot")
+
+    # PCA Incremental
