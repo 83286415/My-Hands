@@ -24,7 +24,7 @@ from sklearn.svm import SVC
 from sklearn.ensemble import GradientBoostingRegressor
 from deslib.des.knora_e import KNORAE
 from sklearn.decomposition import PCA
-from six.moves import urllib
+from sklearn.decomposition import IncrementalPCA
 
 # To plot pretty figures
 import matplotlib
@@ -191,3 +191,64 @@ if __name__ == '__main__':
     save_fig("mnist_compression_plot")
 
     # PCA Incremental
+
+    # partial fit each sub MNIST data array to save memory
+    n_batches = 100
+    inc_pca = IncrementalPCA(n_components=154)  # train a incremental PCA model
+    for X_batch in np.array_split(X_train, n_batches):  # save memory but partial fit n_batches times: maybe longer time
+        print(".", end="")  # not shown in the book
+        inc_pca.partial_fit(X_batch)  # not fit the whole train data set
+
+    # transform the whole data set with the model above
+    X_reduced_inc_pca = inc_pca.transform(X_train)
+    X_recovered_inc_pca = inc_pca.inverse_transform(X_reduced_inc_pca)
+
+    # verify
+    print(np.allclose(pca.mean_, inc_pca.mean_))  # True: the mean values of two models are equal
+    print(np.allclose(X_reduced_inc_pca, X_reduced))  # False: the results are different - inc PCA not perfect
+
+    # plot
+    plt.figure(figsize=(7, 4))
+    plt.subplot(121)
+    plot_digits(X_train[::2100])
+    plt.subplot(122)
+    plot_digits(X_recovered_inc_pca[::2100])
+    plt.tight_layout()
+
+    save_fig("mnist_incremental_pca_plot")
+
+    # Using memmap() to read array file on disk
+
+    # save X_train to disk
+    filename = os.path.join(ROOT_PATH, 'Model saved', "my_mnist.data")
+    m, n = X_train.shape
+
+    X_mm = np.memmap(filename, dtype='float32', mode='write', shape=(m, n))  # filename: must be a path
+    X_mm[:] = X_train
+    del X_mm  # deleting the X_mm object, that is the memmap() class object,  will save X_mm to disk
+
+    # read memory file from disk
+    X_mm = np.memmap(filename, dtype="float32", mode="readonly", shape=(m, n))  # make a read only model
+
+    batch_size = m // n_batches
+    inc_pca_mem = IncrementalPCA(n_components=154, batch_size=batch_size)
+    inc_pca_mem.fit(X_mm)
+    # IncrementalPCA(batch_size=525, copy=True, n_components=154, whiten=False)
+    X_reduced_inc_pca_mem = inc_pca_mem.transform(X_train)
+    X_recovered_inc_pca = inc_pca.inverse_transform(X_reduced_inc_pca_mem)
+
+    # verify
+    print(np.allclose(pca.mean_, inc_pca_mem.mean_))  # True: the mean values of two models are equal
+    print(np.allclose(X_reduced_inc_pca_mem, X_reduced))  # False: the results are different - inc PCA not perfect
+
+    # plot
+    plt.figure(figsize=(7, 4))
+    plt.subplot(121)
+    plot_digits(X_train[::2100])
+    plt.subplot(122)
+    plot_digits(X_recovered_inc_pca[::2100])
+    plt.tight_layout()
+
+    save_fig("mnist_incremental_pca_mem_plot")
+
+    # Randomized PCA
