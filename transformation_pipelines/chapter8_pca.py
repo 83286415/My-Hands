@@ -5,6 +5,7 @@ from __future__ import division, print_function, unicode_literals
 import numpy as np
 import os
 import warnings
+import time
 
 # Chapter import
 from sklearn.model_selection import train_test_split
@@ -252,3 +253,92 @@ if __name__ == '__main__':
     save_fig("mnist_incremental_pca_mem_plot")
 
     # Randomized PCA
+
+    # random PCA model
+    rnd_pca = PCA(n_components=154, svd_solver="randomized", random_state=42)
+    X_reduced_rnd = rnd_pca.fit_transform(X_train)
+
+    # verify
+    print(np.allclose(X_reduced_rnd, X_reduced))  # False: of course False
+
+    # Time complexity
+
+    # compare fit time for: regular PCA, Incremental PCA and Randomized PCA with different PCA dimensions
+    for n_components in (2, 10, 154):
+        print("n_components =", n_components)
+        regular_pca = PCA(n_components=n_components)
+        inc_pca = IncrementalPCA(n_components=n_components, batch_size=500)
+        rnd_pca = PCA(n_components=n_components, random_state=42, svd_solver="randomized")
+
+        for pca in (regular_pca, inc_pca, rnd_pca):
+            t1 = time.time()
+            pca.fit(X_train)
+            t2 = time.time()
+            print("    {}: {:.1f} seconds".format(pca.__class__.__name__, t2 - t1))
+    '''  incremental PCA needs longer time to fit
+    n_components = 2
+    PCA:            1.8 seconds
+    IncrementalPCA: 14.4 seconds
+    Randomized PCA: 1.8 seconds
+    
+    n_components = 10
+    PCA:            2.0 seconds
+    IncrementalPCA: 14.6 seconds
+    Randomized PCA: 2.0 seconds
+    
+    n_components = 154
+    PCA:            5.0 seconds
+    IncrementalPCA: 21.1 seconds
+    Randomized PCA: 5.0 seconds'''
+
+    # compare  PCA and Randomized PCA for data sets of different sizes (number of instances)
+    times_rpca = []  # random pca fit time
+    times_pca = []
+    sizes = [1000, 10000, 20000, 30000, 40000, 50000, 70000, 100000, 200000, 500000]
+    for n_samples in sizes:
+        X = np.random.randn(n_samples, 5)
+        pca = PCA(n_components=2, svd_solver="randomized", random_state=42)
+        t1 = time.time()
+        pca.fit(X)
+        t2 = time.time()
+        times_rpca.append(t2 - t1)
+        pca = PCA(n_components=2)
+        t1 = time.time()
+        pca.fit(X)
+        t2 = time.time()
+        times_pca.append(t2 - t1)
+
+    plt.figure(figsize=(7, 4))
+    plt.plot(sizes, times_rpca, "b-o", label="RPCA")
+    plt.plot(sizes, times_pca, "r-s", label="PCA")
+    plt.xlabel("n_samples")
+    plt.ylabel("Training time")
+    plt.legend(loc="upper left")
+    plt.title("PCA and Randomized PCA time complexity ")
+
+    # compare their performance on datasets of 2,000 instances with various numbers of features
+    times_rpca = []
+    times_pca = []
+    sizes = [1000, 2000, 3000, 4000, 5000, 6000]
+    for n_features in sizes:
+        X = np.random.randn(2000, n_features)
+        pca = PCA(n_components=2, random_state=42, svd_solver="randomized")
+        t1 = time.time()
+        pca.fit(X)
+        t2 = time.time()
+        times_rpca.append(t2 - t1)
+        pca = PCA(n_components=2)
+        t1 = time.time()
+        pca.fit(X)
+        t2 = time.time()
+        times_pca.append(t2 - t1)
+
+    plt.figure(figsize=(7, 4))
+    plt.plot(sizes, times_rpca, "b-o", label="RPCA")
+    plt.plot(sizes, times_pca, "r-s", label="PCA")
+    plt.xlabel("n_features")
+    plt.ylabel("Training time")
+    plt.legend(loc="upper left")
+    plt.title("PCA and Randomized PCA time complexity ")
+
+    plt.show()
