@@ -72,6 +72,9 @@ def standard_scaler(points):
 
 
 if __name__ == "__main__":
+    """
+    There are many extra codes about clusters on file 08_dimensionality_reduction.ipynb
+    """
 
     # DBScan
 
