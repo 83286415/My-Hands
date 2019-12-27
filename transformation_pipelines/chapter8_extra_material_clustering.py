@@ -24,6 +24,8 @@ from sklearn.datasets import load_iris
 from sklearn.datasets import make_blobs
 from sklearn.mixture import GaussianMixture
 from sklearn.cluster import KMeans
+from sklearn.cluster import MiniBatchKMeans
+from timeit import timeit
 
 
 # To plot pretty figures
@@ -118,6 +120,8 @@ def plot_clusterer_comparison(clusterer1, clusterer2, X, title1=None, title2=Non
         plt.title(title2, fontsize=14)
 
 
+def load_next_batch(batch_size):
+    return X[np.random.choice(len(X), batch_size, replace=False)]
 
 
 if __name__ == '__main__':
@@ -271,9 +275,10 @@ if __name__ == '__main__':
 
     plot_clusterer_comparison(kmeans_rnd_init1, kmeans_rnd_init2, X,
                               "Solution 1", "Solution 2 (with a different random init)")
+    # different random seeds, different cluster centers.
 
     save_fig("kmeans_variability_diagram")
-    plt.show()
+    # plt.show()
 
     # 7. Inertia
 
@@ -282,4 +287,133 @@ if __name__ == '__main__':
 
     # 8. Multiple Initializations
 
+    # 10 initializations model: run 10 times initializations to improve Inertia value, reducing it.
+    kmeans_rnd_10_inits = KMeans(n_clusters=5, init="random", n_init=10, algorithm="full", random_state=11)
+    kmeans_rnd_10_inits.fit(X)
 
+    # plot
+    plt.figure(figsize=(8, 4))
+    plot_decision_boundaries(kmeans_rnd_10_inits, X)  # much better boundaries
+    # plt.show()
+
+    # 9 KMeans++
+
+    # regular kmeans:
+    kmeans_random = KMeans(n_clusters=5, init="random", n_init=1, algorithm="full", random_state=19)
+    kmeans_random.fit(X)
+    # k-means++
+    kmeans_plus = KMeans(n_clusters=5, init="k-means++", n_init=1, algorithm="full", random_state=None)
+    kmeans_plus.fit(X)
+    # good init kmeans: specify the cluster centers for a good init
+    good_init = np.array([[-3, 3], [-3, 2], [-3, 1], [-1, 2], [0, 2]])
+    kmeans_good = KMeans(n_clusters=5, init=good_init, n_init=1, random_state=None)  # random_state=None
+    kmeans_good.fit(X)
+    print('kmeans_random inertia: ', kmeans_random.inertia_)  # 237.46249169442845
+    print('kmeans_plus inertia: ', kmeans_plus.inertia_)  # 211.59853725816822  the best kmeans
+    print('kmeans_good inertia: ', kmeans_good.inertia_)  # 211.5985372581684
+
+    # 10. Mini-Batch K-Means
+
+    # build an example model
+    minibatch_kmeans = MiniBatchKMeans(n_clusters=5, random_state=42)
+    minibatch_kmeans.fit(X)
+    '''MiniBatchKMeans(batch_size=100, compute_labels=True, init='k-means++',
+        init_size=None, max_iter=100, max_no_improvement=10, n_clusters=5,
+        n_init=3, random_state=42, reassignment_ratio=0.01, tol=0.0,
+        verbose=0)'''
+    print('minibatch_kmeans: ', minibatch_kmeans.inertia_)  # 211.93186531476775 good
+
+    # memmap; in case of data set doesn't fit memory
+    filename = "my_mnist.data"
+    m, n = 50000, 28 * 28
+    X_mm = np.memmap(filename, dtype="float32", mode="readonly", shape=(m, n))  # memmap refer to chapter8_pca.py
+
+    # build model
+    minibatch_kmeans = MiniBatchKMeans(n_clusters=10, batch_size=10, random_state=42)
+    minibatch_kmeans.fit(X_mm)
+
+    np.random.seed(42)
+    k = 5  # clusters count
+    n_init = 10
+    n_iterations = 100
+    batch_size = 100
+    init_size = 500  # more data for K-Means++ initialization
+    evaluate_on_last_n_iters = 10
+    best_kmeans = None
+
+    # get the best kmeans score
+    for init in range(n_init):
+        minibatch_kmeans = MiniBatchKMeans(n_clusters=k, init_size=init_size)
+        X_init = load_next_batch(init_size)
+        minibatch_kmeans.partial_fit(X_init)
+
+        minibatch_kmeans.sum_inertia_ = 0
+        for iteration in range(n_iterations):
+            X_batch = load_next_batch(batch_size)
+            minibatch_kmeans.partial_fit(X_batch)
+            if iteration >= n_iterations - evaluate_on_last_n_iters:
+                minibatch_kmeans.sum_inertia_ += minibatch_kmeans.inertia_
+
+        if (best_kmeans is None or
+                minibatch_kmeans.sum_inertia_ < best_kmeans.sum_inertia_):
+            best_kmeans = minibatch_kmeans
+
+    print('best socre of mini batch kmeans: ', best_kmeans.score(X))  # -211.70999744411483
+
+    # get the regular kmeans and mini batch kmeans fit time and inertia
+    times = np.empty((100, 2))
+    inertias = np.empty((100, 2))
+    for k in range(1, 101):
+        kmeans = KMeans(n_clusters=k, random_state=42)
+        minibatch_kmeans = MiniBatchKMeans(n_clusters=k, random_state=42)
+        print("\r{}/{}".format(k, 100), end="")
+        times[k - 1, 0] = timeit("kmeans.fit(X)", number=10, globals=globals())
+        times[k - 1, 1] = timeit("minibatch_kmeans.fit(X)", number=10, globals=globals())
+        inertias[k - 1, 0] = kmeans.inertia_
+        inertias[k - 1, 1] = minibatch_kmeans.inertia_
+
+    # plot
+    plt.figure(figsize=(10, 4))
+
+    plt.subplot(121)
+    plt.plot(range(1, 101), inertias[:, 0], "r--", label="K-Means")
+    plt.plot(range(1, 101), inertias[:, 1], "b.-", label="Mini-batch K-Means")
+    plt.xlabel("$k$", fontsize=16)
+    # plt.ylabel("Inertia", fontsize=14)
+    plt.title("Inertia", fontsize=14)
+    plt.legend(fontsize=14)
+    plt.axis([1, 100, 0, 100])
+
+    plt.subplot(122)
+    plt.plot(range(1, 101), times[:, 0], "r--", label="K-Means")
+    plt.plot(range(1, 101), times[:, 1], "b.-", label="Mini-batch K-Means")
+    plt.xlabel("$k$", fontsize=16)
+    # plt.ylabel("Training time (seconds)", fontsize=14)
+    plt.title("Training time (seconds)", fontsize=14)
+    plt.axis([1, 100, 0, 6])
+    # plt.legend(fontsize=14)
+
+    save_fig("minibatch_kmeans_vs_kmeans")
+    # plt.show()
+
+    # 11. Finding the optimal number of clusters
+
+    # get the inertias list while cluster count k is increasing
+    kmeans_per_k = [KMeans(n_clusters=k, random_state=42).fit(X) for k in range(1, 10)]  # model list
+    inertias = [model.inertia_ for model in kmeans_per_k]  # inertial list
+
+    # plot the elbow and the best k value is around the elbow
+    plt.figure(figsize=(8, 3.5))
+    plt.plot(range(1, 10), inertias, "bo-")
+    plt.xlabel("$k$", fontsize=14)
+    plt.ylabel("Inertia", fontsize=14)
+    plt.annotate('Elbow',
+                 xy=(4, inertias[3]),
+                 xytext=(0.55, 0.55),
+                 textcoords='figure fraction',
+                 fontsize=16,
+                 arrowprops=dict(facecolor='black', shrink=0.1)
+                 )
+    plt.axis([1, 8.5, 0, 1300])
+    save_fig("inertia_vs_k_diagram")
+    plt.show()
