@@ -26,6 +26,9 @@ from sklearn.mixture import GaussianMixture
 from sklearn.cluster import KMeans
 from sklearn.cluster import MiniBatchKMeans
 from timeit import timeit
+from sklearn.metrics import silhouette_score
+from sklearn.metrics import silhouette_samples
+from matplotlib.ticker import FixedLocator, FixedFormatter
 
 
 # To plot pretty figures
@@ -363,14 +366,15 @@ if __name__ == '__main__':
     # get the regular kmeans and mini batch kmeans fit time and inertia
     times = np.empty((100, 2))
     inertias = np.empty((100, 2))
-    for k in range(1, 101):
-        kmeans = KMeans(n_clusters=k, random_state=42)
-        minibatch_kmeans = MiniBatchKMeans(n_clusters=k, random_state=42)
-        print("\r{}/{}".format(k, 100), end="")
-        times[k - 1, 0] = timeit("kmeans.fit(X)", number=10, globals=globals())
-        times[k - 1, 1] = timeit("minibatch_kmeans.fit(X)", number=10, globals=globals())
-        inertias[k - 1, 0] = kmeans.inertia_
-        inertias[k - 1, 1] = minibatch_kmeans.inertia_
+    if 0:
+        for k in range(1, 101):
+            kmeans = KMeans(n_clusters=k, random_state=42)
+            minibatch_kmeans = MiniBatchKMeans(n_clusters=k, random_state=42)
+            print("\r{}/{}".format(k, 100), end="")
+            times[k - 1, 0] = timeit("kmeans.fit(X)", number=10, globals=globals())
+            times[k - 1, 1] = timeit("minibatch_kmeans.fit(X)", number=10, globals=globals())
+            inertias[k - 1, 0] = kmeans.inertia_
+            inertias[k - 1, 1] = minibatch_kmeans.inertia_
 
     # plot
     plt.figure(figsize=(10, 4))
@@ -416,4 +420,56 @@ if __name__ == '__main__':
                  )
     plt.axis([1, 8.5, 0, 1300])
     save_fig("inertia_vs_k_diagram")
+    plt.show()
+
+    # plot silhouette_score. silhouette_score refer to cloud note
+    print(silhouette_score(X, kmeans.labels_))  # the bigger the better
+    silhouette_scores = [silhouette_score(X, model.labels_)
+                         for model in kmeans_per_k[1:]]
+
+    plt.figure(figsize=(8, 3))
+    plt.plot(range(2, 10), silhouette_scores, "bo-")
+    plt.xlabel("$k$", fontsize=14)
+    plt.ylabel("Silhouette score", fontsize=14)
+    plt.axis([1.8, 8.5, 0.55, 0.7])
+    save_fig("silhouette_score_vs_k_diagram")
+    # plt.show()
+
+    # silhouette diagram
+    plt.figure(figsize=(11, 9))
+
+    for k in (3, 4, 5, 6):
+        plt.subplot(2, 2, k - 2)
+
+        y_pred = kmeans_per_k[k - 1].labels_
+        silhouette_coefficients = silhouette_samples(X, y_pred)
+
+        padding = len(X) // 30
+        pos = padding
+        ticks = []
+        for i in range(k):
+            coeffs = silhouette_coefficients[y_pred == i]
+            coeffs.sort()
+
+            color = matplotlib.cm.spectral(i / k)
+            plt.fill_betweenx(np.arange(pos, pos + len(coeffs)), 0, coeffs,
+                              facecolor=color, edgecolor=color, alpha=0.7)
+            ticks.append(pos + len(coeffs) // 2)
+            pos += len(coeffs) + padding
+
+        plt.gca().yaxis.set_major_locator(FixedLocator(ticks))
+        plt.gca().yaxis.set_major_formatter(FixedFormatter(range(k)))
+        if k in (3, 5):
+            plt.ylabel("Cluster")
+
+        if k in (5, 6):
+            plt.gca().set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
+            plt.xlabel("Silhouette Coefficient")
+        else:
+            plt.tick_params(labelbottom='off')
+
+        plt.axvline(x=silhouette_scores[k - 2], color="red", linestyle="--")
+        plt.title("$k={}$".format(k), fontsize=16)
+
+    save_fig("silhouette_analysis_diagram")
     plt.show()
