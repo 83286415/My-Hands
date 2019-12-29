@@ -366,7 +366,7 @@ if __name__ == '__main__':
     # get the regular kmeans and mini batch kmeans fit time and inertia
     times = np.empty((100, 2))
     inertias = np.empty((100, 2))
-    if 0:
+    if 0:  # comment it out for costing to much time on training
         for k in range(1, 101):
             kmeans = KMeans(n_clusters=k, random_state=42)
             minibatch_kmeans = MiniBatchKMeans(n_clusters=k, random_state=42)
@@ -425,7 +425,7 @@ if __name__ == '__main__':
     # plot silhouette_score. silhouette_score refer to cloud note
     print(silhouette_score(X, kmeans.labels_))  # the bigger the better
     silhouette_scores = [silhouette_score(X, model.labels_)
-                         for model in kmeans_per_k[1:]]
+                         for model in kmeans_per_k[1:]]  # the mean Silhouette Coefficient of all samples
 
     plt.figure(figsize=(8, 3))
     plt.plot(range(2, 10), silhouette_scores, "bo-")
@@ -438,24 +438,23 @@ if __name__ == '__main__':
     # silhouette diagram
     plt.figure(figsize=(11, 9))
 
-    for k in (3, 4, 5, 6):
+    for k in (3, 4, 5, 6):  # loop in clusters' #
         plt.subplot(2, 2, k - 2)
 
         y_pred = kmeans_per_k[k - 1].labels_
-        silhouette_coefficients = silhouette_samples(X, y_pred)
+        silhouette_coefficients = silhouette_samples(X, y_pred)  # returns Silhouette Coefficient for each samples
 
         padding = len(X) // 30
         pos = padding
         ticks = []
         for i in range(k):
-            coeffs = silhouette_coefficients[y_pred == i]
+            coeffs = silhouette_coefficients[y_pred == i]  # each cluster's silhouette_coefficients of each model
             coeffs.sort()
 
-            color = matplotlib.cm.spectral(i / k)
-            plt.fill_betweenx(np.arange(pos, pos + len(coeffs)), 0, coeffs,
-                              facecolor=color, edgecolor=color, alpha=0.7)
-            ticks.append(pos + len(coeffs) // 2)
-            pos += len(coeffs) + padding
+            # color = matplotlib.cm.hot
+            plt.fill_betweenx(np.arange(pos, pos + len(coeffs)), 0, coeffs, alpha=0.7)  # color bars of each cluster
+            ticks.append(pos + len(coeffs) // 2)  # x limit
+            pos += len(coeffs) + padding  # y limit
 
         plt.gca().yaxis.set_major_locator(FixedLocator(ticks))
         plt.gca().yaxis.set_major_formatter(FixedFormatter(range(k)))
@@ -468,8 +467,42 @@ if __name__ == '__main__':
         else:
             plt.tick_params(labelbottom='off')
 
+        # the red vertical line of the mean Silhouette Coefficient of all samples
         plt.axvline(x=silhouette_scores[k - 2], color="red", linestyle="--")
-        plt.title("$k={}$".format(k), fontsize=16)
+        plt.title("$k={}$".format(k), fontsize=16)  # k on top of the each image
 
     save_fig("silhouette_analysis_diagram")
+    # plt.show()
+
+    # 12. Limits of K-Means     todo: COP-KMeans?
+
+    # data set
+    X1, y1 = make_blobs(n_samples=1000, centers=((4, -4), (0, 0)), random_state=42)
+    X1 = X1.dot(np.array([[0.374, 0.95], [0.732, 0.598]]))
+    X2, y2 = make_blobs(n_samples=250, centers=1, random_state=42)
+    X2 = X2 + [6, -8]
+    X = np.r_[X1, X2]
+    y = np.r_[y1, y2]
+
+    plot_clusters(X)
+
+    # build models
+    kmeans_good = KMeans(n_clusters=3, init=np.array([[-1.5, 2.5], [0.5, 0], [4, 0]]), n_init=1, random_state=42)
+    kmeans_bad = KMeans(n_clusters=3, random_state=42)
+    kmeans_good.fit(X)
+    kmeans_bad.fit(X)
+
+    # plot
+    plt.figure(figsize=(10, 3.2))
+
+    plt.subplot(121)
+    plot_decision_boundaries(kmeans_good, X)
+    plt.title("Inertia = {:.1f}".format(kmeans_good.inertia_), fontsize=14)
+
+    plt.subplot(122)
+    plot_decision_boundaries(kmeans_bad, X, show_ylabels=False)
+    plt.title("Inertia = {:.1f}".format(kmeans_bad.inertia_), fontsize=14)
+    # TODO: No COP-KMeans related doc. i don't know why good model has a higher inertia value.
+
+    save_fig("bad_kmeans_diagram")
     plt.show()
