@@ -29,6 +29,7 @@ from timeit import timeit
 from sklearn.metrics import silhouette_score
 from sklearn.metrics import silhouette_samples
 from matplotlib.ticker import FixedLocator, FixedFormatter
+from matplotlib.image import imread
 
 
 # To plot pretty figures
@@ -420,7 +421,7 @@ if __name__ == '__main__':
                  )
     plt.axis([1, 8.5, 0, 1300])
     save_fig("inertia_vs_k_diagram")
-    plt.show()
+    # plt.show()
 
     # plot silhouette_score. silhouette_score refer to cloud note
     print(silhouette_score(X, kmeans.labels_))  # the bigger the better
@@ -505,4 +506,57 @@ if __name__ == '__main__':
     # TODO: No COP-KMeans related doc. i don't know why good model has a higher inertia value.
 
     save_fig("bad_kmeans_diagram")
+    # plt.show()
+
+    # 13. Using clustering for image segmentation
+
+    # data set
+    input_image_path = image_path('flower.png')
+    image = imread(input_image_path)
+    print(image.shape)  # (312, 613, 4)
+
+    # try to build model for testing
+    X = image.reshape(-1, 3)  # change image (312, 613, 4) array into a (x, 3) shape array. x == 255083, 3: 3 channels
+    print(X.shape)  # (255008, 3)
+    kmeans = KMeans(n_clusters=8, random_state=42).fit(X)
+
+    segmented_img = kmeans.cluster_centers_[kmeans.labels_]
+    # labels_ is a ndarray not a index. so cluster_centers_[kmeans.labels_] is not to get the value from ndarray but put
+    # the labels_ values into cluster_centers_ array.
+
+    # kmeans.cluster_centers_:float ndarray with shape (k, n_features) Centroids found at the last iteration of k-means.
+    # kmeans.labels_:   integer ndarray with shape (n_samples,) label[i] is the code or index of the centroid the
+    #                   i'th observation is closest to.
+    clusters = np.asarray(kmeans.cluster_centers_, dtype=np.uint8)
+    print('cluster_centers_ shape: ', clusters.shape)  # (8, 3), 8: clusters count; 3: n_features
+    labels = np.asarray(kmeans.labels_, dtype=np.uint8)
+    print('labels_ shape: ', labels.shape)  # (255008,)
+    print('segmented_img shape: ', segmented_img.shape)  # (255008, 3) refer to the # above
+
+    segmented_img = segmented_img.reshape(image.shape)
+
+    # here is the real image segmentation code below:
+    segmented_imgs = []
+    n_colors = (10, 8, 6, 4, 2)  # also cluster count in model
+    for n_clusters in n_colors:
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42).fit(X)  # re-build model with different cluster count
+        segmented_img = kmeans.cluster_centers_[kmeans.labels_]
+        segmented_imgs.append(segmented_img.reshape(image.shape))
+
+    # plot
+    plt.figure(figsize=(10, 5))
+    plt.subplots_adjust(wspace=0.05, hspace=0.1)
+
+    plt.subplot(231)
+    plt.imshow(image)
+    plt.title("Original image")
+    plt.axis('off')
+
+    for idx, n_clusters in enumerate(n_colors):
+        plt.subplot(232 + idx)
+        plt.imshow(segmented_imgs[idx])
+        plt.title("{} colors".format(n_clusters))
+        plt.axis('off')
+
     plt.show()
+    save_fig("image_segmentation_diagram", tight_layout=False)
