@@ -22,6 +22,9 @@ from sklearn.manifold import MDS
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.datasets import load_iris
 from sklearn.datasets import make_blobs
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV
 from sklearn.mixture import GaussianMixture
 from sklearn.cluster import KMeans
 from sklearn.cluster import MiniBatchKMeans
@@ -558,5 +561,108 @@ if __name__ == '__main__':
         plt.title("{} colors".format(n_clusters))
         plt.axis('off')
 
-    plt.show()
+    # plt.show()
     save_fig("image_segmentation_diagram", tight_layout=False)
+
+    # 14 Using Clustering for Preprocessing
+
+    # data set
+    X_digits, y_digits = load_digits(return_X_y=True)  # load MNIST like data set: 1797 samples total
+    X_train, X_test, y_train, y_test = train_test_split(X_digits, y_digits, random_state=42)
+
+    # build a log model
+    log_reg = LogisticRegression(random_state=42)
+    log_reg.fit(X_train, y_train)
+    print('log_reg score: ', log_reg.score(X_test, y_test))  # 0.9666666666666667 it's a base line
+
+    # build pipeline: K-means used as pre-processing step
+    pipeline = Pipeline([
+        ("kmeans", KMeans(n_clusters=50, random_state=42)),
+        ("log_reg", LogisticRegression(random_state=42)),
+    ])  # 50 clusters
+    pipeline.fit(X_train, y_train)
+    print('pipeline score: ', pipeline.score(X_test, y_test))  # 0.9822222222222222 better than base line
+
+    # find a better parameter of K-means by GridSearchCV
+    param_grid = dict(kmeans__n_clusters=range(2, 100))
+    print(param_grid)  # {'kmeans__n_clusters': range(2, 100)}, model name in pipe line + __ + param name as dict's key
+    grid_clf = GridSearchCV(pipeline, param_grid, cv=3, verbose=2)
+    grid_clf.fit(X_train, y_train)
+    print('best param: ', grid_clf.best_params_)  # {'kmeans__n_clusters': 90}
+    print('score of pipeline with best param: ', grid_clf.score(X_test, y_test))  # 0.9844444444444445 with param == 90
+
+    # 15. Clustering for Semi-supervised Learning
+    n_labeled = 50
+
+    # build a log model
+    log_reg = LogisticRegression(random_state=42)
+    log_reg.fit(X_train[:n_labeled], y_train[:n_labeled])  # only 50 labeled train data: 50 random data
+    print('random 50 label data score: ', log_reg.score(X_test, y_test))  # 0.8266666666666667
+
+    # method 1:
+    k = 50
+    kmeans = KMeans(n_clusters=k, random_state=42)
+    X_digits_dist = kmeans.fit_transform(X_train)  # make all train data into 50 clusters
+    representative_digit_idx = np.argmin(X_digits_dist, axis=0)  # find the most close value to each cluster's center
+    X_representative_digits = X_train[representative_digit_idx]  # the 50 representative digits array
+
+    # plot
+    plt.figure(figsize=(8, 2))
+    for index, X_representative_digit in enumerate(X_representative_digits):
+        plt.subplot(k // 10, 10, index + 1)
+        plt.imshow(X_representative_digit.reshape(8, 8), cmap="binary", interpolation="bilinear")
+        plt.axis('off')
+
+    save_fig("representative_images_diagram", tight_layout=False)
+    # plt.show()
+
+    # define the label manually to representative digits array
+    y_representative_digits = np.array([
+        4, 8, 0, 6, 8, 3, 7, 7, 9, 2,
+        5, 5, 8, 5, 2, 1, 2, 9, 6, 1,
+        1, 6, 9, 0, 8, 3, 0, 7, 4, 1,
+        6, 5, 2, 4, 1, 8, 6, 3, 9, 2,
+        4, 2, 9, 4, 7, 6, 2, 3, 1, 1])  # it's not 50 random data but 50 clusters center data. So it means better score.
+
+    # try test data on this 50 representative data trained model
+    log_reg = LogisticRegression(random_state=42)
+    log_reg.fit(X_representative_digits, y_representative_digits)
+    print('representative 50 label score: ', log_reg.score(X_test, y_test))  # 0.9244444444444444 better than random one
+
+    # method 2:
+    # make a zero y array
+    y_train_propagated = np.empty(len(X_train), dtype=np.int32)
+    for i in range(k):
+        y_train_propagated[kmeans.labels_ == i] = y_representative_digits[i]  # give representative labels to new y
+        # give the cluster labels to all the other instances in the same cluster
+
+    # fit a new model with new y
+    log_reg = LogisticRegression(random_state=42)
+    log_reg.fit(X_train, y_train_propagated)
+    print('same label in one cluster score: ', log_reg.score(X_test, y_test))
+
+    # method 3:
+    # Giving the cluster label to ALL other instances in the same cluster is NOT a good idea. So give it to 20% cloest.
+    percentile_closest = 20
+
+    X_cluster_dist = X_digits_dist[np.arange(len(X_train)), kmeans.labels_]  # np and labels pointers
+    # return: [30.3917992  20.3734662  15.08582969 ... 19.36276495 19.5626378 18.23619458]
+    for i in range(k):  # k: 50
+        in_cluster = (kmeans.labels_ == i)  # return a [False False False ... False False False]
+        cluster_dist = X_cluster_dist[in_cluster]  # get the digits in cluster
+        cutoff_distance = np.percentile(cluster_dist, percentile_closest)  # get the 20% distance to cluster center
+        above_cutoff = (X_cluster_dist > cutoff_distance)  # out of the cluster
+        X_cluster_dist[in_cluster & above_cutoff] = -1
+
+    # make data set
+    partially_propagated = (X_cluster_dist != -1)
+    X_train_partially_propagated = X_train[partially_propagated]
+    y_train_partially_propagated = y_train_propagated[partially_propagated]
+
+    # train a new model
+    log_reg = LogisticRegression(random_state=42)
+    log_reg.fit(X_train_partially_propagated, y_train_partially_propagated)
+    print('20% label score: ', log_reg.score(X_test, y_test))  # 0.9422222222222222 the best score
+
+    print(np.mean(y_train_partially_propagated == y_train[partially_propagated]))  # 0.9896907216494846
+    # the best score due to the propagated labels are actually pretty good: their accuracy is very close to 99%

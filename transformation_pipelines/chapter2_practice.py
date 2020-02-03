@@ -12,7 +12,7 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import RandomizedSearchCV
 from scipy.stats import expon, reciprocal
-from chapter2 import display_scores, load_housing_data, HOUSING_PATH, DataFrameSelector, CombinedAttributesAdder
+from .chapter2 import display_scores, load_housing_data, HOUSING_PATH, DataFrameSelector, CombinedAttributesAdder
 
 
 class MostImportantSelector(BaseEstimator, TransformerMixin):
@@ -227,7 +227,8 @@ if __name__ == '__main__':
     param_grid = [
         {'preparation__num_pipeline__imputer__strategy': ['mean', 'median', 'most_frequent'],
          'feature_selection__k': list(range(1, len(feature_importances) + 1))}
-    ]
+    ]  # model name A in pipe line + __ + model name B in pipe line + __ +  param name as dict's key
+    # so here: 'preparation' + __ + 'num_pipeline' + __ + 'imputer' + __ + 'strategy'
 
     grid_search_prep = GridSearchCV(prepare_select_and_predict_pipeline, param_grid, cv=5,
                                     scoring='neg_mean_squared_error', verbose=2, n_jobs=4)
