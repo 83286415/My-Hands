@@ -10,6 +10,7 @@ import time
 # Chapter import
 from sklearn.datasets import make_blobs
 from sklearn.mixture import GaussianMixture
+from matplotlib.colors import LogNorm
 
 # To plot pretty figures
 import matplotlib
@@ -38,7 +39,63 @@ def image_path(fig_id):
     return os.path.join(ROOT_PATH, "images", CHAPTER_ID, fig_id)
 
 
+def plot_centroids(centroids, weights=None, circle_color='w', cross_color='k'):
+    if weights is not None:
+        centroids = centroids[weights > weights.max() / 10]
+    plt.scatter(centroids[:, 0], centroids[:, 1],
+                marker='o', s=30, linewidths=8,
+                color=circle_color, zorder=10, alpha=0.9)
+    plt.scatter(centroids[:, 0], centroids[:, 1],
+                marker='x', s=50, linewidths=50,
+                color=cross_color, zorder=11, alpha=1)
+
+
+def plot_gaussian_mixture(clusterer, X, resolution=1000, show_ylabels=True):
+    mins = X.min(axis=0) - 0.1
+    maxs = X.max(axis=0) + 0.1
+    xx, yy = np.meshgrid(np.linspace(mins[0], maxs[0], resolution),
+                         np.linspace(mins[1], maxs[1], resolution))
+    Z = -clusterer.score_samples(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
+
+    plt.contourf(xx, yy, Z,
+                 norm=LogNorm(vmin=1.0, vmax=30.0),
+                 levels=np.logspace(0, 2, 12))
+    plt.contour(xx, yy, Z,
+                norm=LogNorm(vmin=1.0, vmax=30.0),
+                levels=np.logspace(0, 2, 12),
+                linewidths=1, colors='k')
+
+    Z = clusterer.predict(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
+    plt.contour(xx, yy, Z,
+                linewidths=2, colors='r', linestyles='dashed')
+
+    plt.plot(X[:, 0], X[:, 1], 'k.', markersize=2)
+    plot_centroids(clusterer.means_, clusterer.weights_)
+
+    plt.xlabel("$x_1$", fontsize=14)
+    if show_ylabels:
+        plt.ylabel("$x_2$", fontsize=14, rotation=0)
+    else:
+        plt.tick_params(labelleft='off')
+
+
+def compare_gaussian_mixtures(gm1, gm2, X):
+    plt.figure(figsize=(9, 4))
+
+    plt.subplot(121)
+    plot_gaussian_mixture(gm1, X)
+    plt.title('covariance_type="{}"'.format(gm1.covariance_type), fontsize=14)
+
+    plt.subplot(122)
+    plot_gaussian_mixture(gm2, X, show_ylabels=False)
+    plt.title('covariance_type="{}"'.format(gm2.covariance_type), fontsize=14)
+
+
 if __name__ == '__main__':
+
+    # Gaussian Mixtures
 
     # data set
     X1, y1 = make_blobs(n_samples=1000, centers=((4, -4), (0, 0)), random_state=42)
@@ -50,6 +107,9 @@ if __name__ == '__main__':
 
     # build model
     gm = GaussianMixture(n_components=3, n_init=10, random_state=42)  # 3 clusters; n_init: train from 10 clusters
+    # parameter: covariance_type = full(default), tied, spherical, diag. detailed info refer to EM part in cloud note.
+    # usage of this covariance_type, refer to "# compare" below.
+
     gm.fit(X)
     print('weight: ', gm.weights_)  # The weights of each mixture cluster
     print('means: ', gm.means_)  # the mean of each mixture cluster, not the center (refer to EM in cloud note)
@@ -80,3 +140,32 @@ if __name__ == '__main__':
     print('y new: ', y_new)  # [0 1 2 2 2 2]
     score_samples = gm.score_samples(X_new)  # Compute the weighted log probabilities for each sample
     print('score samples: ', score_samples)  # [-4.80269976 -2.01524058 -3.51660935 -2.22880963 -2.18454233 -3.82874339]
+
+    # plot
+    plt.figure(figsize=(8, 4))
+    plot_gaussian_mixture(gm, X)
+    save_fig("gaussian_mixtures_diagram")
+    # plt.show()
+
+    # compare GaussianMixture's covariance_type ,which can refer to EM part in cloud note.
+    gm_full = GaussianMixture(n_components=3, n_init=10, covariance_type="full", random_state=42)  # full (default type)
+    gm_tied = GaussianMixture(n_components=3, n_init=10, covariance_type="tied", random_state=42)  # tied
+    gm_spherical = GaussianMixture(n_components=3, n_init=10, covariance_type="spherical", random_state=42)  # spherical
+    gm_diag = GaussianMixture(n_components=3, n_init=10, covariance_type="diag", random_state=42)  # diag
+    gm_full.fit(X)
+    gm_tied.fit(X)
+    gm_spherical.fit(X)
+    gm_diag.fit(X)
+
+    compare_gaussian_mixtures(gm_tied, gm_spherical, X)
+    save_fig("covariance_type_diagram_of_tied_and_spherical")
+    # plt.show()
+
+    compare_gaussian_mixtures(gm_full, gm_diag, X)
+    save_fig("covariance_type_diagram_of_full_and_diag")
+    # plt.tight_layout()
+    plt.show()
+
+    # Variational Bayesian Gaussian Mixtures
+
+    # Likelihood Function
