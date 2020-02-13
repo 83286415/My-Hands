@@ -11,6 +11,8 @@ import time
 from sklearn.datasets import make_blobs
 from sklearn.mixture import GaussianMixture
 from matplotlib.colors import LogNorm
+from sklearn.mixture import BayesianGaussianMixture
+from sklearn.datasets import make_moons
 
 # To plot pretty figures
 import matplotlib
@@ -93,6 +95,10 @@ def compare_gaussian_mixtures(gm1, gm2, X):
     plt.title('covariance_type="{}"'.format(gm2.covariance_type), fontsize=14)
 
 
+def plot_data(X):
+    plt.plot(X[:, 0], X[:, 1], 'k.', markersize=2)
+
+
 if __name__ == '__main__':
 
     # Gaussian Mixtures
@@ -164,8 +170,69 @@ if __name__ == '__main__':
     compare_gaussian_mixtures(gm_full, gm_diag, X)
     save_fig("covariance_type_diagram_of_full_and_diag")
     # plt.tight_layout()
-    plt.show()
+    # plt.show()
 
     # Variational Bayesian Gaussian Mixtures
 
-    # Likelihood Function
+    # build model
+    bgm = BayesianGaussianMixture(n_components=10, n_init=10, random_state=42)  # components=10 must > clusters' count
+    bgm.fit(X)
+    print(np.round(bgm.weights_, 2))  # np.round() refer to cloud note
+    # array([0.4 , 0.21, 0.4 , 0.  , 0.  , 0.  , 0.  , 0.  , 0.  , 0.  ]) So only 3 clusters in.
+
+    # plot
+    plt.figure(figsize=(8, 5))
+    plot_gaussian_mixture(bgm, X)
+    # plt.show()
+
+    # build new models with different parameters
+    bgm_low = BayesianGaussianMixture(n_components=10, max_iter=1000, n_init=1,
+                                      weight_concentration_prior=0.01, random_state=42)  # 0.01
+    bgm_high = BayesianGaussianMixture(n_components=10, max_iter=1000, n_init=1,
+                                       weight_concentration_prior=10000, random_state=42)  # 10000, more clusters
+    '''
+    The higher concentration puts more mass in the center and will lead to more components being active, while a lower 
+    concentration parameter will lead to more mass at the edge of the simplex.
+    '''
+
+    nn = 200
+    bgm_low.fit(X[:nn])
+    bgm_high.fit(X[:nn])
+
+    print(np.round(bgm_low.weights_, 2))  # [0.56 0.44 0.   0.   0.   0.   0.   0.   0.   0.  ]  , 2 clusters
+    print(np.round(bgm_high.weights_, 2))  # [0.21 0.42 0.01 0.01 0.01 0.01 0.01 0.12 0.22 0.01]  , 4 clusters
+
+    # plot
+    plt.figure(figsize=(9, 4))
+
+    plt.subplot(121)
+    plot_gaussian_mixture(bgm_low, X[:nn])
+    plt.title("weight_concentration_prior = 0.01", fontsize=14)
+
+    plt.subplot(122)
+    plot_gaussian_mixture(bgm_high, X[:nn], show_ylabels=False)
+    plt.title("weight_concentration_prior = 10000", fontsize=14)
+
+    save_fig("mixture_concentration_prior_diagram")
+    # plt.show()
+
+    # practise
+    X_moons, y_moons = make_moons(n_samples=1000, noise=0.05, random_state=42)
+
+    bgm = BayesianGaussianMixture(n_components=12, max_iter=1000, n_init=1,
+                                  weight_concentration_prior_type='dirichlet_distribution',
+                                  weight_concentration_prior=0.0001, random_state=42)
+    bgm.fit(X_moons)
+
+    plt.figure(figsize=(9, 3.2))
+
+    plt.subplot(121)
+    plot_data(X_moons)
+    plt.xlabel("$x_1$", fontsize=14)
+    plt.ylabel("$x_2$", fontsize=14, rotation=0)
+
+    plt.subplot(122)
+    plot_gaussian_mixture(bgm, X_moons, show_ylabels=False)
+
+    save_fig("moons_vs_bgm_diagram")
+    plt.show()
